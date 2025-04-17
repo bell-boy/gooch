@@ -1,0 +1,1 @@
+# Gradient‑Oriented Operator Chain Harness (gooch)
