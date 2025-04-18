@@ -11,7 +11,7 @@ namespace gooch {
 // Standard tensor constructor with uninitialized data
 Tensor::Tensor(std::vector<size_t> shape) {
   this->shape_ = shape;
-  this->strides_ = std::vector<size_t>(shape.size());
+  this->strides_ = std::vector<int>(shape.size());
   this->size_ = 1;
   for (int i = shape.size() - 1; i >= 0; i--) {
     this->strides_[i] = this->size_;
@@ -22,13 +22,13 @@ Tensor::Tensor(std::vector<size_t> shape) {
 }
 
 // View constructor
-Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {}
+Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {}
 
 
 View Tensor::operator[](std::vector<Slice> indices) {
   size_t offset = this->offset_;
   std::vector<size_t> new_shape;
-  std::vector<size_t> new_strides;
+  std::vector<int> new_strides;
   assert(indices.size() <= this->shape_.size());
   while (indices.size() < this->shape_.size()) {
     indices.push_back(Slice::all());
@@ -134,6 +134,6 @@ Slice Slice::all() {
   return Slice(0, -1, 1);
 }
 
-View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size) : Tensor(data, shape, strides, offset, size) {}
+View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : Tensor(data, shape, strides, offset, size) {}
 
 }

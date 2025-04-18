@@ -44,7 +44,7 @@ namespace detail {
   }
 
   template<typename T>
-  void recursive_fill(const T t, std::shared_ptr<float> data, size_t offset, size_t index, std::vector<size_t>& strides) {
+  void recursive_fill(const T t, std::shared_ptr<float> data, size_t offset, size_t index, std::vector<int>& strides) {
     if constexpr (std::is_same<T, float>::value) {
       data.get()[offset] = t;
     } else {
@@ -84,14 +84,14 @@ class View;
 class Tensor {
   std::shared_ptr<float> data_;
   std::vector<size_t> shape_;
-  std::vector<size_t> strides_;
+  std::vector<int> strides_;
   std::function<void(Tensor)> grad_fn_;
   size_t offset_;
   size_t size_;
 
 public:
   Tensor(std::vector<size_t> shape);
-  Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size);
+  Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
   View operator[](std::vector<Slice> indices);
 
   std::shared_ptr<float> data() const;
@@ -105,7 +105,7 @@ public:
 
 class View : public Tensor {
 public:
-  View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size);
+  View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
   void operator=(const Tensor& other);
 };
 
@@ -127,7 +127,7 @@ Tensor FromVector(T data) {
     // 2. check that the tensor is rectangular
     assert(detail::check_rectangular(data, 1, shape));
     // 3. create the data buffer and copy the data
-    std::vector<size_t> strides(shape.size());
+    std::vector<int> strides(shape.size());
     size_t size = 1;
     for (int i = shape.size() - 1; i >= 0; i--) {
       strides[i] = size;
