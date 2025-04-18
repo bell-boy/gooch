@@ -38,6 +38,7 @@ Tensor Tensor::operator[](std::vector<Slice> indices) {
   size_t offset = this->offset_;
   std::vector<size_t> new_shape;
   std::vector<size_t> new_strides;
+  assert(indices.size() <= this->shape_.size());
   while (indices.size() < this->shape_.size()) {
     indices.push_back(Slice::all());
   }
