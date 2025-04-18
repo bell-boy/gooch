@@ -143,6 +143,8 @@ View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<i
 std::vector<size_t> Tensor::GetBroadcastShape(const Tensor& a, const Tensor& b) {
   Tensor larger = a.shape().size() > b.shape().size() ? a : b;
   Tensor smaller = a.shape().size() > b.shape().size() ? b : a;
+  // pad the front of the smaller tensor shape with 1s
+  std::vector<size_t> padded_shape(larger.shape().size() - smaller.shape().size(), 1);
   std::vector<size_t> resulting_shape;
   for (size_t i = 0; i < larger.shape().size(); i++) {
     // assert that the shapes are compatible
@@ -158,7 +160,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
   std::vector<int> new_strides(shape.size());
   for (size_t i = 0; i < shape.size(); i++) {
     size_t a_index = i - (shape.size() - a.shape().size());
-    if (a_index < 0) {
+    if (i < (shape.size() - a.shape().size())) {
       new_strides[i] = 0;
     } else {
       assert(a.shape()[a_index] == shape[i] || a.shape()[a_index] == 1);

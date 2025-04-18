@@ -6,7 +6,7 @@ int main() {
   gooch::Tensor t = gooch::FromVector(data);
   std::cout << t.str() << std::endl;
   std::cout << t[{gooch::Slice::all(), gooch::Slice(0, -1, 2)}].str() << std::endl;
-  t[{1}] = gooch::FromVector(std::vector<float>{17, 18, 19, 20});
+  t[{gooch::Slice::all(), 0}] = gooch::FromVector(-1.0f);
   std::cout << t.str() << std::endl;
   std::cout << gooch::FromVector(1.0f).str() << std::endl;
 
