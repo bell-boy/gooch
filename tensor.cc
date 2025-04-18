@@ -22,19 +22,10 @@ Tensor::Tensor(std::vector<size_t> shape) {
 }
 
 // View constructor
-Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset) {
-  this->data_ = data;
-  this->shape_ = shape;
-  this->strides_ = strides;
-  this->offset_ = offset;
-  this->size_ = 1;
-  for (int i = shape.size() - 1; i >= 0; i--) {
-    this->size_ *= this->shape_[i];
-  }
-}
+Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {}
 
 
-Tensor Tensor::operator[](std::vector<Slice> indices) {
+View Tensor::operator[](std::vector<Slice> indices) {
   size_t offset = this->offset_;
   std::vector<size_t> new_shape;
   std::vector<size_t> new_strides;
@@ -42,20 +33,22 @@ Tensor Tensor::operator[](std::vector<Slice> indices) {
   while (indices.size() < this->shape_.size()) {
     indices.push_back(Slice::all());
   }
+  size_t new_size = 1;
   for (size_t i = 0; i < indices.size(); i++) {
     auto it = indices.begin() + i;
     int start = it->start_ < 0 ? it->start_ + this->shape_[i] : it->start_;
     int end = it->end_ < 0 ? it->end_ + this->shape_[i] : it->end_;
     // the new shape is ceil((end - start + 1) / it->step_)
-    int size = (end - start + it->step_) / it->step_;
-    assert(size > 0);
-    if (size > 1) {
-      new_shape.push_back(size);
+    int dim_size = (end - start + it->step_) / it->step_;
+    assert(dim_size > 0);
+    if (dim_size > 1) {
+      new_shape.push_back(dim_size);
       new_strides.push_back(this->strides_[i] * it->step_);
+      new_size *= this->strides_[i] == 0 ? 1 : dim_size;
     }
     offset += start * this->strides_[i];
   }
-  return Tensor(this->data_, new_shape, new_strides, offset);
+  return View(this->data_, new_shape, new_strides, offset, new_size);
 }
 
 std::shared_ptr<float> Tensor::data() const {
@@ -140,5 +133,7 @@ Slice::Slice(int index) {
 Slice Slice::all() {
   return Slice(0, -1, 1);
 }
+
+View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset, size_t size) : Tensor(data, shape, strides, offset, size) {}
 
 }
