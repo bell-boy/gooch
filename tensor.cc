@@ -145,13 +145,16 @@ std::vector<size_t> Tensor::GetBroadcastShape(const Tensor& a, const Tensor& b) 
   Tensor smaller = a.shape().size() > b.shape().size() ? b : a;
   // pad the front of the smaller tensor shape with 1s
   std::vector<size_t> padded_shape(larger.shape().size() - smaller.shape().size(), 1);
+  for (size_t i = 0; i < smaller.shape().size(); i++) {
+    padded_shape.push_back(smaller.shape()[i]);
+  }
   std::vector<size_t> resulting_shape;
   for (size_t i = 0; i < larger.shape().size(); i++) {
     // assert that the shapes are compatible
-    if (larger.shape()[i] != smaller.shape()[i] && larger.shape()[i] != 1 && smaller.shape()[i] != 1) {
+    if (larger.shape()[i] != padded_shape[i] && larger.shape()[i] != 1 && padded_shape[i] != 1) {
       throw std::invalid_argument("Shapes are not broadcastable");
     }
-    resulting_shape.push_back(std::max(larger.shape()[i], smaller.shape()[i]));
+    resulting_shape.push_back(std::max(larger.shape()[i], padded_shape[i]));
   }
   return resulting_shape;
 }
@@ -183,5 +186,79 @@ void View::operator=(const Tensor& other) {
   };
   recursive_copy(*this, t);
 }
+
+Tensor operator+(const Tensor& a, const Tensor& b) {
+  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
+  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
+  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
+  Tensor result(broadcast_shape);
+  std::function<void(Tensor, Tensor, Tensor)> recursive_add = [&recursive_add](Tensor a, Tensor b, Tensor result) {
+    if (a.shape().size() == 0) {
+      result.data().get()[result.offset()] = a.data().get()[a.offset()] + b.data().get()[b.offset()];
+    } else {
+      for (size_t i = 0; i < a.shape()[0]; i++) {
+        recursive_add(a[{i}], b[{i}], result[{i}]);
+      }
+    }
+  };
+  recursive_add(a_broadcast, b_broadcast, result);
+  return result;
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
+  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
+  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
+  Tensor result(broadcast_shape);
+  std::function<void(Tensor, Tensor, Tensor)> recursive_sub = [&recursive_sub](Tensor a, Tensor b, Tensor result) {
+    if (a.shape().size() == 0) {
+      result.data().get()[result.offset()] = a.data().get()[a.offset()] - b.data().get()[b.offset()];
+    } else {
+      for (size_t i = 0; i < a.shape()[0]; i++) {
+        recursive_sub(a[{i}], b[{i}], result[{i}]);
+      }
+    }
+  };
+  recursive_sub(a_broadcast, b_broadcast, result);
+  return result;
+}
+
+Tensor operator*(const Tensor& a, const Tensor& b) {
+  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
+  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
+  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
+  Tensor result(broadcast_shape);
+  std::function<void(Tensor, Tensor, Tensor)> recursive_mul = [&recursive_mul](Tensor a, Tensor b, Tensor result) {
+    if (a.shape().size() == 0) {
+      result.data().get()[result.offset()] = a.data().get()[a.offset()] * b.data().get()[b.offset()];
+    } else {
+      for (size_t i = 0; i < a.shape()[0]; i++) {
+        recursive_mul(a[{i}], b[{i}], result[{i}]);
+      }
+    }
+  };
+  recursive_mul(a_broadcast, b_broadcast, result);
+  return result;
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
+  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
+  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
+  Tensor result(broadcast_shape);
+  std::function<void(Tensor, Tensor, Tensor)> recursive_div = [&recursive_div](Tensor a, Tensor b, Tensor result) {
+    if (a.shape().size() == 0) {
+      result.data().get()[result.offset()] = a.data().get()[a.offset()] / b.data().get()[b.offset()];
+    } else {
+      for (size_t i = 0; i < a.shape()[0]; i++) {
+        recursive_div(a[{i}], b[{i}], result[{i}]);
+      }
+    }
+  };
+  recursive_div(a_broadcast, b_broadcast, result);
+  return result;
+}
+
+
 
 }

@@ -144,4 +144,9 @@ Tensor FromVector(T data) {
     return t;
   }
 }
+
+Tensor operator+(const Tensor& a, const Tensor& b);
+Tensor operator-(const Tensor& a, const Tensor& b);
+Tensor operator*(const Tensor& a, const Tensor& b);
+Tensor operator/(const Tensor& a, const Tensor& b);
 }
