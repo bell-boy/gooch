@@ -1,3 +1,7 @@
 # Executables
 *.o
 *.test
+
+# Editor files
+.vscode/
+.cursor/

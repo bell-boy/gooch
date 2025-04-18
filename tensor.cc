@@ -8,31 +8,34 @@
 
 namespace gooch {
 
+// Standard tensor constructor with uninitialized data
 Tensor::Tensor(std::vector<size_t> shape) {
-  shape_ = shape;
-  strides_ = std::vector<size_t>(shape.size());
-  size_ = 1;
+  this->shape_ = shape;
+  this->strides_ = std::vector<size_t>(shape.size());
+  this->size_ = 1;
   for (int i = shape.size() - 1; i >= 0; i--) {
-    strides_[i] = size_;
-    size_ *= shape_[i];
+    this->strides_[i] = this->size_;
+    this->size_ *= this->shape_[i];
   }
-  data_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
+  this->data_ = std::shared_ptr<float>(new float[this->size_], std::default_delete<float[]>());
 
 }
 
+// View constructor
 Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<size_t> strides, size_t offset) {
-  data_ = data;
-  shape_ = shape;
-  strides_ = strides;
-  offset_ = offset;
-  size_ = 1;
+  this->data_ = data;
+  this->shape_ = shape;
+  this->strides_ = strides;
+  this->offset_ = offset;
+  this->size_ = 1;
   for (int i = shape.size() - 1; i >= 0; i--) {
-    size_ *= shape_[i];
+    this->size_ *= this->shape_[i];
   }
 }
+
 
 Tensor Tensor::operator[](std::vector<Slice> indices) {
-  size_t offset = 0;
+  size_t offset = this->offset_;
   std::vector<size_t> new_shape;
   std::vector<size_t> new_strides;
   while (indices.size() < this->shape_.size()) {
@@ -66,6 +69,10 @@ size_t Tensor::size() const {
   return this->size_;
 }
 
+size_t Tensor::offset() const {
+  return this->offset_;
+}
+
 Tensor zeros(std::vector<size_t> shape) {
   Tensor t(shape);
   std::fill(t.data().get(), t.data().get() + t.size(), 0.0f);
@@ -77,6 +84,7 @@ Tensor ones(std::vector<size_t> shape) {
   std::fill(t.data().get(), t.data().get() + t.size(), 1.0f);
   return t;
 }
+
 
 std::string Tensor::str() const {
   std::stringstream ss;
@@ -93,7 +101,7 @@ std::string Tensor::str() const {
     if (t.shape().size() == 0) {
       std::string result = "";
       std::stringstream temp;
-      temp << std::fixed << std::setprecision(3) << t.data().get()[0];
+      temp << std::fixed << std::setprecision(3) << t.data().get()[t.offset()];
       result += temp.str();
       return result;
     }
