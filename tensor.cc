@@ -67,6 +67,10 @@ size_t Tensor::offset() const {
   return this->offset_;
 }
 
+std::vector<int> Tensor::strides() const {
+  return this->strides_;
+}
+
 Tensor zeros(std::vector<size_t> shape) {
   Tensor t(shape);
   std::fill(t.data().get(), t.data().get() + t.size(), 0.0f);
@@ -135,5 +139,47 @@ Slice Slice::all() {
 }
 
 View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : Tensor(data, shape, strides, offset, size) {}
+
+std::vector<size_t> Tensor::GetBroadcastShape(const Tensor& a, const Tensor& b) {
+  Tensor larger = a.shape().size() > b.shape().size() ? a : b;
+  Tensor smaller = a.shape().size() > b.shape().size() ? b : a;
+  std::vector<size_t> resulting_shape;
+  for (size_t i = 0; i < larger.shape().size(); i++) {
+    // assert that the shapes are compatible
+    if (larger.shape()[i] != smaller.shape()[i] && larger.shape()[i] != 1 && smaller.shape()[i] != 1) {
+      throw std::invalid_argument("Shapes are not broadcastable");
+    }
+    resulting_shape.push_back(std::max(larger.shape()[i], smaller.shape()[i]));
+  }
+  return resulting_shape;
+}
+
+Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
+  std::vector<int> new_strides(shape.size());
+  for (size_t i = 0; i < shape.size(); i++) {
+    size_t a_index = i - (shape.size() - a.shape().size());
+    if (a_index < 0) {
+      new_strides[i] = 0;
+    } else {
+      assert(a.shape()[a_index] == shape[i] || a.shape()[a_index] == 1);
+      new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
+    }
+  }
+  return Tensor(a.data(), shape, new_strides, a.offset(), a.size());
+}
+
+void View::operator=(const Tensor& other) {
+  Tensor t = Tensor::Broadcast(other, this->shape_);
+  std::function<void(Tensor, Tensor)> recursive_copy = [&recursive_copy](Tensor a, Tensor b) {
+    if (a.shape().size() == 0) {
+      a.data().get()[a.offset()] = b.data().get()[b.offset()];
+    } else {
+      for (size_t i = 0; i < a.shape()[0]; i++) {
+        recursive_copy(a[{i}], b[{i}]);
+      }
+    }
+  };
+  recursive_copy(*this, t);
+}
 
 }

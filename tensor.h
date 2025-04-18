@@ -82,6 +82,7 @@ class View;
 //   Tensor t({2, 3, 4});  // Creates a 2x3x4 tensor
 //   Tensor t2 = t[{1, Slice::all(), 2}];  // Creates a 3x2 tensor
 class Tensor {
+protected:
   std::shared_ptr<float> data_;
   std::vector<size_t> shape_;
   std::vector<int> strides_;
@@ -98,8 +99,12 @@ public:
   std::vector<size_t> shape() const;
   size_t size() const;
   size_t offset() const;
+  std::vector<int> strides() const;
 
   std::string str() const;
+
+  static std::vector<size_t> GetBroadcastShape(const Tensor& a, const Tensor& b);
+  static Tensor Broadcast(const Tensor& a, const std::vector<size_t>& shape);
 
 };
 
