@@ -1,13 +1,16 @@
 #include <iostream>
 #include "tensor.h"
+#include "einops.h"
 
 int main() {
   std::vector<std::vector<float>> data = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
   gooch::Tensor t = gooch::FromVector(data);
+  gooch::Tensor b = gooch::zeros({4, 4});
   std::cout << t.str() << std::endl;
+  std::cout << b.str() << std::endl;
   std::cout << t[{gooch::Slice::all(), gooch::Slice(0, -1, 2)}].str() << std::endl;
   t[{gooch::Slice::all(), 0}] = gooch::FromVector(-1.0f);
   std::cout << t.str() << std::endl;
   std::cout << (t * gooch::FromVector(std::vector<float>{2, 3, 4, 5})).str() << std::endl;
-
+  std::cout << gooch::reduce(t, "batch channel -> batch").str() << std::endl;
 }

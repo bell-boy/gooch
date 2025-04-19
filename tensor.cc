@@ -13,6 +13,7 @@ Tensor::Tensor(std::vector<size_t> shape) {
   this->shape_ = shape;
   this->strides_ = std::vector<int>(shape.size());
   this->size_ = 1;
+  this->offset_ = 0;
   for (int i = shape.size() - 1; i >= 0; i--) {
     this->strides_[i] = this->size_;
     this->size_ *= this->shape_[i];
