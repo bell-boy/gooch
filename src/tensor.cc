@@ -52,6 +52,11 @@ View Tensor::operator[](std::vector<Slice> indices) {
   return View(this->data_, new_shape, new_strides, offset, new_size);
 }
 
+std::ostream& operator<<(std::ostream& os, const Tensor& t) {
+  os << t.str();
+  return os;
+}
+
 std::shared_ptr<float> Tensor::data() const {
   return this->data_;
 }

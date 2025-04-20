@@ -1,16 +1,29 @@
 #include <iostream>
 #include "tensor.h"
 #include "einops.h"
+#include <cassert>
 
 int main() {
-  std::vector<std::vector<float>> data = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
-  gooch::Tensor t = gooch::FromVector(data);
-  gooch::Tensor b = gooch::zeros({4, 4});
-  std::cout << t.str() << std::endl;
-  std::cout << b.str() << std::endl;
-  std::cout << t[{gooch::Slice::all(), gooch::Slice(0, -1, 2)}].str() << std::endl;
-  t[{gooch::Slice::all(), 0}] = gooch::FromVector(-1.0f);
-  std::cout << t.str() << std::endl;
-  std::cout << (t * gooch::FromVector(std::vector<float>{2, 3, 4, 5})).str() << std::endl;
-  std::cout << gooch::reduce(t, "batch channel -> batch").str() << std::endl;
+  gooch::Tensor t = gooch::zeros({100, 100, 100});
+  float value = 0;
+  for (size_t i = 0; i < t.shape()[0]; i++) {
+    for (size_t j = 0; j < t.shape()[1]; j++) {
+      for (size_t k = 0; k < t.shape()[2]; k++) {
+        gooch::View view = t[{i, j, k}];
+        float* data = view.data().get() + view.offset();
+        assert((*data == 0));
+        t[{i, j, k}] = gooch::FromVector(value++);
+      }
+    }
+  }
+  value = 0;
+  for (size_t i = 0; i < t.shape()[0]; i++) {
+    for (size_t j = 0; j < t.shape()[1]; j++) {
+      for (size_t k = 0; k < t.shape()[2]; k++) {
+        gooch::View view = t[{i, j, k}];
+        float* data = view.data().get() + view.offset();
+        assert((*data == value++));
+      }
+    }
+  }
 }

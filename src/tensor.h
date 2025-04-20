@@ -96,6 +96,7 @@ public:
   Tensor(std::vector<size_t> shape);
   Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
   View operator[](std::vector<Slice> indices);
+  friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
   std::shared_ptr<float> data() const;
   std::vector<size_t> shape() const;
