@@ -26,32 +26,6 @@ Tensor::Tensor(std::vector<size_t> shape) {
 Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {}
 
 
-View Tensor::operator[](std::vector<Slice> indices) {
-  size_t offset = this->offset_;
-  std::vector<size_t> new_shape;
-  std::vector<int> new_strides;
-  assert(indices.size() <= this->shape_.size());
-  while (indices.size() < this->shape_.size()) {
-    indices.push_back(Slice::all());
-  }
-  size_t new_size = 1;
-  for (size_t i = 0; i < indices.size(); i++) {
-    auto it = indices.begin() + i;
-    int start = it->start_ < 0 ? it->start_ + this->shape_[i] : it->start_;
-    int end = it->end_ < 0 ? it->end_ + this->shape_[i] : it->end_;
-    // the new shape is ceil((end - start + 1) / it->step_)
-    int dim_size = (end - start + it->step_) / it->step_;
-    assert(dim_size > 0);
-    if (dim_size > 1) {
-      new_shape.push_back(dim_size);
-      new_strides.push_back(this->strides_[i] * it->step_);
-      new_size *= this->strides_[i] == 0 ? 1 : dim_size;
-    }
-    offset += start * this->strides_[i];
-  }
-  return View(this->data_, new_shape, new_strides, offset, new_size);
-}
-
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
   os << t.str();
   return os;
@@ -110,9 +84,9 @@ std::string Tensor::str() const {
       return result;
     }
     std::string result = "[";
-    for (size_t i = 0; i < t.shape()[0]; i++) {
-      result += recursive_print(t[{i}]);
-      if (i < t.shape()[0] - 1) {
+    for (int i = 0; i < (int) t.shape()[0]; i++) {
+      result += recursive_print(t(i));
+      if (i < (int) t.shape()[0] - 1) {
         result += t.shape().size() == 1 ? ", " : ",\n";
       }
     }
@@ -185,84 +159,12 @@ void View::operator=(const Tensor& other) {
     if (a.shape().size() == 0) {
       a.data().get()[a.offset()] = b.data().get()[b.offset()];
     } else {
-      for (size_t i = 0; i < a.shape()[0]; i++) {
-        recursive_copy(a[{i}], b[{i}]);
+      for (int i = 0; i < (int) a.shape()[0]; i++) {
+        recursive_copy(a(i), b(i));
       }
     }
   };
   recursive_copy(*this, t);
-}
-
-Tensor operator+(const Tensor& a, const Tensor& b) {
-  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
-  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
-  Tensor result(broadcast_shape);
-  std::function<void(Tensor, Tensor, Tensor)> recursive_add = [&recursive_add](Tensor a, Tensor b, Tensor result) {
-    if (a.shape().size() == 0) {
-      result.data().get()[result.offset()] = a.data().get()[a.offset()] + b.data().get()[b.offset()];
-    } else {
-      for (size_t i = 0; i < a.shape()[0]; i++) {
-        recursive_add(a[{i}], b[{i}], result[{i}]);
-      }
-    }
-  };
-  recursive_add(a_broadcast, b_broadcast, result);
-  return result;
-}
-
-Tensor operator-(const Tensor& a, const Tensor& b) {
-  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
-  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
-  Tensor result(broadcast_shape);
-  std::function<void(Tensor, Tensor, Tensor)> recursive_sub = [&recursive_sub](Tensor a, Tensor b, Tensor result) {
-    if (a.shape().size() == 0) {
-      result.data().get()[result.offset()] = a.data().get()[a.offset()] - b.data().get()[b.offset()];
-    } else {
-      for (size_t i = 0; i < a.shape()[0]; i++) {
-        recursive_sub(a[{i}], b[{i}], result[{i}]);
-      }
-    }
-  };
-  recursive_sub(a_broadcast, b_broadcast, result);
-  return result;
-}
-
-Tensor operator*(const Tensor& a, const Tensor& b) {
-  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
-  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
-  Tensor result(broadcast_shape);
-  std::function<void(Tensor, Tensor, Tensor)> recursive_mul = [&recursive_mul](Tensor a, Tensor b, Tensor result) {
-    if (a.shape().size() == 0) {
-      result.data().get()[result.offset()] = a.data().get()[a.offset()] * b.data().get()[b.offset()];
-    } else {
-      for (size_t i = 0; i < a.shape()[0]; i++) {
-        recursive_mul(a[{i}], b[{i}], result[{i}]);
-      }
-    }
-  };
-  recursive_mul(a_broadcast, b_broadcast, result);
-  return result;
-}
-
-Tensor operator/(const Tensor& a, const Tensor& b) {
-  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  Tensor a_broadcast = Tensor::Broadcast(a, broadcast_shape);
-  Tensor b_broadcast = Tensor::Broadcast(b, broadcast_shape);
-  Tensor result(broadcast_shape);
-  std::function<void(Tensor, Tensor, Tensor)> recursive_div = [&recursive_div](Tensor a, Tensor b, Tensor result) {
-    if (a.shape().size() == 0) {
-      result.data().get()[result.offset()] = a.data().get()[a.offset()] / b.data().get()[b.offset()];
-    } else {
-      for (size_t i = 0; i < a.shape()[0]; i++) {
-        recursive_div(a[{i}], b[{i}], result[{i}]);
-      }
-    }
-  };
-  recursive_div(a_broadcast, b_broadcast, result);
-  return result;
 }
 
 

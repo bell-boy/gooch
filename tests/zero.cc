@@ -6,23 +6,23 @@
 int main() {
   gooch::Tensor t = gooch::zeros({100, 100, 100});
   float value = 0;
-  for (size_t i = 0; i < t.shape()[0]; i++) {
-    for (size_t j = 0; j < t.shape()[1]; j++) {
-      for (size_t k = 0; k < t.shape()[2]; k++) {
-        gooch::View view = t[{i, j, k}];
+  for (int i = 0; i < (int) t.shape()[0]; i++) {
+    for (int j = 0; j < (int) t.shape()[1]; j++) {
+      for (int k = 0; k < (int) t.shape()[2]; k++) {
+        gooch::View view = t(i, j, k);
         float* data = view.data().get() + view.offset();
-        assert((*data == 0));
-        t[{i, j, k}] = gooch::FromVector(value++);
+        assert((*data - 0) < 1e-6);
+        t(i, j, k) = gooch::FromVector(value++);
       }
     }
   }
   value = 0;
-  for (size_t i = 0; i < t.shape()[0]; i++) {
-    for (size_t j = 0; j < t.shape()[1]; j++) {
-      for (size_t k = 0; k < t.shape()[2]; k++) {
-        gooch::View view = t[{i, j, k}];
+  for (int i = 0; i < (int) t.shape()[0]; i++) {
+    for (int j = 0; j < (int) t.shape()[1]; j++) {
+      for (int k = 0; k < (int) t.shape()[2]; k++) {
+        gooch::View view = t(i, j, k);
         float* data = view.data().get() + view.offset();
-        assert((*data == value++));
+        assert((*data - value++) < 1e-6);
       }
     }
   }

@@ -95,7 +95,8 @@ protected:
 public:
   Tensor(std::vector<size_t> shape);
   Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
-  View operator[](std::vector<Slice> indices);
+  template<typename... Args>
+  View operator()(Args... indices);
   friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
   std::shared_ptr<float> data() const;
@@ -116,6 +117,35 @@ public:
   View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
   void operator=(const Tensor& other);
 };
+
+template<typename... Args>
+View Tensor::operator()(Args... indices) {
+  std::vector<Slice> slices = {indices...};
+  std::vector<size_t> new_shape;
+  std::vector<int> new_strides;
+  size_t new_size = 1;
+  size_t new_offset = offset_;
+  // using given slices
+  for (size_t i = 0; i < slices.size(); i++) {
+    int start = slices[i].start_ < 0 ? slices[i].start_ + shape_[i] : slices[i].start_;
+    int end = slices[i].end_ < 0 ? slices[i].end_ + shape_[i] : slices[i].end_;
+    int dim_size = (end - start + slices[i].step_) / slices[i].step_;
+    assert(dim_size > 0);
+    if (dim_size > 1) {
+      new_shape.push_back(dim_size);
+      new_strides.push_back(strides_[i] * slices[i].step_);
+      new_size *= dim_size;
+    }
+    new_offset += start * strides_[i];
+  }
+  // adding any missing slices
+  for (size_t i = slices.size(); i < shape_.size(); i++) {
+    new_shape.push_back(shape_[i]);
+    new_strides.push_back(strides_[i]);
+    new_size *= shape_[i];
+  }
+  return View(data_, new_shape, new_strides, new_offset, new_size);
+}
 
 Tensor zeros(std::vector<size_t> shape);
 Tensor ones(std::vector<size_t> shape);
