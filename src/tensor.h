@@ -6,7 +6,10 @@
 #include <functional>
 #include <cassert>
 #include <iostream>
+#include <numeric>
 namespace gooch {
+
+class Tensor;
 
 namespace detail {
   template<typename T>
@@ -22,6 +25,7 @@ namespace detail {
   template<typename T>
   void get_shape(const T t, std::vector<size_t>& shape) {
     if constexpr (std::is_same<T, float>::value) {
+      (void)t;  // Mark parameter as unused
       return;
     } else {
       shape.push_back(t.size());
@@ -86,6 +90,8 @@ class View;
 class Tensor {
 protected:
   std::shared_ptr<float> data_;
+  std::shared_ptr<float> grad_;
+  bool is_leaf_;
   std::vector<size_t> shape_;
   std::vector<int> strides_;
   std::function<void(Tensor)> grad_fn_;
@@ -110,6 +116,8 @@ public:
   static std::vector<size_t> GetBroadcastShape(const Tensor& a, const Tensor& b);
   static Tensor Broadcast(const Tensor& a, const std::vector<size_t>& shape);
 
+
+  friend Tensor operator+(const Tensor& a, const Tensor& b);
 };
 
 class View : public Tensor {
@@ -178,7 +186,6 @@ Tensor FromVector(T data) {
   }
 }
 
-Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator/(const Tensor& a, const Tensor& b);

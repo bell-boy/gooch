@@ -1,0 +1,8 @@
+#include "tensor.h"
+// GLAS is a re-implementation of a few kernels from BLAS
+// All of the kernels expect the input to be *contiguous* in memory
+namespace gooch {
+namespace glas {
+void axpy(size_t N, float a, const float* x, float* y);
+}
+}

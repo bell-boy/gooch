@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -I./src -g -O3
+CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -I./src -g -O3 -mavx
 
 BUILD_CC_FILES := ${wildcard src/*.cc}
 BUILD_HEADERS := ${wildcard src/*.h}
