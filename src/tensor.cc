@@ -46,21 +46,22 @@ namespace detail {
 
 // Standard tensor constructor with uninitialized data
 Tensor::Tensor(std::vector<size_t> shape) {
-  this->shape_ = shape;
-  this->strides_ = std::vector<int>(shape.size());
-  this->size_ = 1;
-  this->offset_ = 0;
+  shape_ = shape;
+  strides_ = std::vector<int>(shape.size());
+  size_ = 1;
+  offset_ = 0;
   for (int i = shape.size() - 1; i >= 0; i--) {
-    this->strides_[i] = this->size_;
-    this->size_ *= this->shape_[i];
+    strides_[i] = size_;
+    size_ *= shape_[i];
   }
-  this->data_ = std::shared_ptr<float>(new float[this->size_], std::default_delete<float[]>());
-
+  data_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
+  grad_ = std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr));
 }
 
 // View constructor
-Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {}
-
+Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {
+  grad_ = std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr));
+}
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
   os << t.str();
@@ -132,6 +133,14 @@ std::string Tensor::str() const {
   return ss.str() + recursive_print(*this);
 }
 
+Tensor Tensor::grad() const {
+  if (*grad_ == nullptr) {
+    //throw std::runtime_error("Gradient not set");
+    *grad_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
+    std::fill((*grad_).get(), (*grad_).get() + size_, 0.0f);
+  }
+  return Tensor(*grad_, shape_, strides_, offset_, size_);
+}
 Slice::Slice(int start, int end, int step) {
   this->start_ = start;
   this->end_ = end;
@@ -224,8 +233,40 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
   }
   Tensor result(b_buffer, broadcast_shape, strides, 0, size);
   result.is_leaf_ = false;
+
   result.grad_fn_ = [broadcast_a, broadcast_b](Tensor grad) {
-    (void) grad;
+    std::set<size_t> a_reduced_indicies;
+    std::set<size_t> b_reduced_indicies;
+
+    
+    for (size_t i = 0; i < broadcast_a.shape().size(); i++) {
+      if (broadcast_a.strides()[i] == 0) {
+        a_reduced_indicies.insert(i);
+      }
+    }
+    for (size_t i = 0; i < broadcast_b.shape().size(); i++) {
+      if (broadcast_b.strides()[i] == 0) {
+        b_reduced_indicies.insert(i);
+      }
+    }
+    std::shared_ptr<float> a_buffer(new float[broadcast_a.size()], std::default_delete<float[]>());
+    std::shared_ptr<float> b_buffer(new float[broadcast_b.size()], std::default_delete<float[]>());
+    std::fill(a_buffer.get(), a_buffer.get() + broadcast_a.size(), 0.0f);
+    std::fill(b_buffer.get(), b_buffer.get() + broadcast_b.size(), 0.0f);
+    detail::BufferReduce(grad, a_buffer.get(), a_reduced_indicies);
+    detail::BufferReduce(grad, b_buffer.get(), b_reduced_indicies);
+
+    if (*broadcast_a.grad_ == nullptr) {
+      *broadcast_a.grad_ = std::shared_ptr<float>(new float[broadcast_a.size()], std::default_delete<float[]>());
+      std::fill((*broadcast_a.grad_).get(), (*broadcast_a.grad_).get() + broadcast_a.size(), 0.0f);
+    }
+    if (*broadcast_b.grad_ == nullptr) {
+      *broadcast_b.grad_ = std::shared_ptr<float>(new float[broadcast_b.size()], std::default_delete<float[]>());
+      std::fill((*broadcast_b.grad_).get(), (*broadcast_b.grad_).get() + broadcast_b.size(), 0.0f);
+    }
+
+    glas::axpy(broadcast_a.size(), 1.0f, a_buffer.get(), (*broadcast_a.grad_).get());
+    glas::axpy(broadcast_b.size(), 1.0f, b_buffer.get(), (*broadcast_b.grad_).get());
   };
   return result;
 }

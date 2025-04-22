@@ -90,7 +90,7 @@ class View;
 class Tensor {
 protected:
   std::shared_ptr<float> data_;
-  std::shared_ptr<float> grad_;
+  std::shared_ptr<std::shared_ptr<float>> grad_;
   bool is_leaf_;
   std::vector<size_t> shape_;
   std::vector<int> strides_;
@@ -110,12 +110,14 @@ public:
   size_t size() const;
   size_t offset() const;
   std::vector<int> strides() const;
-
   std::string str() const;
+
+  Tensor grad() const;
+
+
 
   static std::vector<size_t> GetBroadcastShape(const Tensor& a, const Tensor& b);
   static Tensor Broadcast(const Tensor& a, const std::vector<size_t>& shape);
-
 
   friend Tensor operator+(const Tensor& a, const Tensor& b);
 };
