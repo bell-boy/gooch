@@ -1,4 +1,5 @@
 #include "tensor.h"
+#include "glas.h"
 #include <iostream>
 #include <random>
 
@@ -38,6 +39,5 @@ int main() {
       assert(fabs(*data - a_vec[i][j] - b_vec[i][j]) < 1e-6);
     }
   }
-
   return 0;
 }
