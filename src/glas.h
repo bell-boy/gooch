@@ -7,6 +7,8 @@ namespace glas {
 void axpy(size_t N, float a, const float* x, float* y);
 Tensor add(const Tensor& a, const Tensor& b);
 void add_(const Tensor& a, const Tensor& b);
+void mul_simd(size_t N, const float* x, float* y);
+Tensor mul(const Tensor& a, const Tensor& b);
 Tensor einsum(const std::string& equation, const Tensor& a, const Tensor& b);
 
 }

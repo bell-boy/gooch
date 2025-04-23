@@ -233,6 +233,17 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
   return result;
 }
 
+Tensor operator*(const Tensor& a, const Tensor& b) {
+  Tensor result = glas::mul(a, b);
+  result.grad_fn_ = [a, b] (Tensor grad) {
+    Tensor a_grad = glas::mul(grad, b);
+    Tensor b_grad = glas::mul(grad, a);
+    update_grad(a_grad, a);
+    update_grad(b_grad, b);
+  };
+  return result;
+}
+
 Tensor Reduce(const Tensor& a, const std::set<size_t>& reduced_indicies) {
   std::shared_ptr<float> buffer(new float[a.size()], std::default_delete<float[]>());
   std::fill(buffer.get(), buffer.get() + a.size(), 0.0f);

@@ -18,45 +18,59 @@ void axpy(size_t N, float a, const float* x, float* y) {
     _mm256_storeu_ps(y + i, y_vec);
   }
   for (size_t i = (N - N % 8); i < N; i++) {
-    y[i] = a * x[i] + y[i];
+    y[i] += a * x[i];
   }
 }
 
 Tensor add(const Tensor& a, const Tensor& b) {
   std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  size_t size = std::accumulate(broadcast_shape.begin(), broadcast_shape.end(), 1, std::multiplies<size_t>());
-  Tensor broadcast_a = Tensor::Broadcast(a, broadcast_shape);
-  Tensor broadcast_b = Tensor::Broadcast(b, broadcast_shape);
+  size_t broadcast_size = std::accumulate(broadcast_shape.begin(), broadcast_shape.end(), 1, std::multiplies<size_t>());
 
-  float* a_buffer = new float[size];
-  std::shared_ptr<float> b_buffer(new float[size], std::default_delete<float[]>());
-  utils::BufferCopy(broadcast_a, a_buffer);
-  utils::BufferCopy(broadcast_b, b_buffer.get());
+  std::shared_ptr<float> a_buffer = utils::broadcast_tensor_to_buf(a, broadcast_shape, broadcast_size);
+  std::shared_ptr<float> b_buffer = utils::broadcast_tensor_to_buf(b, broadcast_shape, broadcast_size);
 
-  glas::axpy(size, 1.0f, a_buffer, b_buffer.get());
+  glas::axpy(broadcast_size, 1.0f, a_buffer.get(), b_buffer.get());
 
-  std::vector<int> strides(broadcast_shape.size());
-  for (int i = (int) broadcast_shape.size() - 1, j = 1; i >= 0; i--) {
-    strides[i] = j;
-    j *= broadcast_shape[i];
-  }
-  return Tensor(broadcast_shape, strides, 0, b_buffer);
+  return Tensor(broadcast_shape, utils::compute_strides(broadcast_shape), 0, b_buffer);
 }
 
 // in-place add, b += a
 void add_(const Tensor& a, const Tensor& b) {
   Tensor broadcast_a = Tensor::Broadcast(a, b.shape());
 
-  float* a_buffer = new float[b.size()];
-  utils::BufferCopy(broadcast_a, a_buffer);
+  std::shared_ptr<float> a_buffer(new float[b.size()], std::default_delete<float[]>());
+  utils::BufferCopy(broadcast_a, a_buffer.get());
 
-  float* b_buffer = new float[b.size()];
-  utils::BufferCopy(b, b_buffer);
+  std::shared_ptr<float> b_buffer(new float[b.size()], std::default_delete<float[]>());
+  utils::BufferCopy(b, b_buffer.get());
 
-  glas::axpy(b.size(), 1.0f, a_buffer, b_buffer);
-  delete[] a_buffer;
+  glas::axpy(b.size(), 1.0f, a_buffer.get(), b_buffer.get());
 
-  utils::BufferAssign(b, b_buffer);
+  utils::BufferAssign(b, b_buffer.get());
+}
+
+void mul_simd(size_t N, const float* x, float* y) {
+  for (size_t i = 0; i < (N - N % 8); i += 8) {
+    __m256 x_vec = _mm256_loadu_ps(x + i);
+    __m256 y_vec = _mm256_loadu_ps(y + i);
+    y_vec = _mm256_mul_ps(x_vec, y_vec);
+    _mm256_storeu_ps(y + i, y_vec);
+  }
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] *= x[i];
+  }
+}
+
+Tensor mul(const Tensor& a, const Tensor& b) {
+  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
+  size_t broadcast_size = std::accumulate(broadcast_shape.begin(), broadcast_shape.end(), 1, std::multiplies<size_t>());
+
+  std::shared_ptr<float> a_buffer = utils::broadcast_tensor_to_buf(a, broadcast_shape, broadcast_size);
+  std::shared_ptr<float> b_buffer = utils::broadcast_tensor_to_buf(b, broadcast_shape, broadcast_size);
+
+  glas::mul_simd(broadcast_size, a_buffer.get(), b_buffer.get());
+
+  return Tensor(broadcast_shape, utils::compute_strides(broadcast_shape), 0, b_buffer);
 }
 
 Tensor einsum(const std::string& equation, const Tensor& a, const Tensor& b) {
