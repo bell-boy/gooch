@@ -178,7 +178,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
       new_strides[i] = 0;
     } else {
       assert(a.shape()[a_index] == shape[i] || a.shape()[a_index] == 1);
-      new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
+      new_strides[i] = a.strides()[a_index];
     }
   }
   return Tensor(shape, new_strides, a.offset(), a);
@@ -251,6 +251,45 @@ Tensor Reduce(const Tensor& a, const std::set<size_t>& reduced_indicies) {
     }
     Tensor unreduced = Tensor(a.shape(), new_strides, grad.offset(), grad.data()); 
     glas::add_(unreduced, a.grad());
+  };
+  return result;
+}
+
+Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
+  Tensor result = glas::einsum(a, b, equation); 
+  result.grad_fn_ = [a, b, equation](Tensor grad) {
+    // decompose equation into a, b and c
+    std::string a_string; 
+    std::string b_string; 
+    std::string c_string; 
+
+    for(size_t i = 0, state = 0; i < equation.size(); i++) {
+      switch (state)
+      {
+      case 0:
+        if (equation[i] == ',') state++;
+        else a_string.push_back(equation[i]);
+        break;
+      case 1:
+        if (equation[i] == '-' && equation[i + 1] == '>') {
+          i += 2;
+          state++;
+        } else b_string.push_back(equation[i]);
+        break;
+      case 2:
+        c_string.push_back(equation[i]);
+        break; 
+      default:
+        break;
+      }
+    }
+
+    Tensor a_grad = glas::einsum(grad, b, c_string + ", " + b_string + " -> " + a_string);
+    Tensor b_grad = glas::einsum(grad, a, c_string + ", " + a_string + " -> " + b_string);
+
+    update_grad(a.grad(), a_grad);
+    update_grad(b.grad(), b_grad);
+
   };
   return result;
 }

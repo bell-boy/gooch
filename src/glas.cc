@@ -59,7 +59,7 @@ void add_(const Tensor& a, const Tensor& b) {
   utils::BufferAssign(b, b_buffer);
 }
 
-Tensor einsum(const std::string& equation, const Tensor& a, const Tensor& b) {
+Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
   // tokenize equation
   std::vector<std::string> tokens;
   std::string token;
@@ -136,6 +136,7 @@ Tensor einsum(const std::string& equation, const Tensor& a, const Tensor& b) {
   }
   // recursively multiply and sum
   std::shared_ptr<float> c_buffer(new float[c_size], std::default_delete<float[]>());
+  std::fill(c_buffer.get(), c_buffer.get() + c_size, 0.0f);
   std::function<void(int, int, int, size_t)> recursive_einsum = [&](int a_offset, int b_offset, int c_offset, size_t N) {
     if (N == 0) {
       c_buffer.get()[c_offset] += a.data().get()[a_offset + a.offset()] * b.data().get()[b_offset + b.offset()];

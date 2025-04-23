@@ -1,5 +1,4 @@
 #include "tensor.h"
-#include "glas.h"
 #include <iostream>
 #include <random>
 
@@ -39,5 +38,9 @@ int main() {
       assert(fabs(*data - a_vec[i][j] - b_vec[i][j]) < 1e-6);
     }
   }
+  gooch::Tensor e = gooch::FromVector(std::vector<std::vector<float>>{{1, 2}, {3, 4}, {5, 6}});
+  gooch::Tensor f = gooch::FromVector(std::vector<std::vector<float>>{{5, 6}, {7, 8}});
+  std::cout << gooch::Einsum(e, f, "i k, k j -> k i j") << std::endl;
+
   return 0;
 }

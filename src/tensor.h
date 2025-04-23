@@ -199,4 +199,5 @@ Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator/(const Tensor& a, const Tensor& b);
+Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation);
 }
