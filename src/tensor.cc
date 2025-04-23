@@ -1,5 +1,6 @@
 #include "tensor.h"
 #include "glas.h"
+#include "utils.h"
 
 #include <vector>
 #include <memory>
@@ -11,38 +12,6 @@
 #include <set>
 
 namespace gooch {
-namespace detail {
-  void BufferCopy(const Tensor& a, float* buffer) {
-    std::function<void(Tensor, float*, size_t, size_t, size_t)> recursive_copy = [&](Tensor t, float* buffer, size_t buffer_offset, size_t tensor_offset, size_t N) {
-      if (N == 0) {
-        buffer[buffer_offset] = t.data().get()[tensor_offset + t.offset()];
-      } else {
-        for (size_t i = 0; i < t.shape()[N - 1]; i++) {
-          size_t buffer_stride = 1;
-          for (size_t j = N; j < t.shape().size(); j++) {
-            buffer_stride *= t.shape()[j];
-          }
-          recursive_copy(t, buffer, buffer_offset + i * buffer_stride, tensor_offset + i * t.strides()[N - 1], N - 1);
-        }
-      }
-    };
-    recursive_copy(a, buffer, 0, 0, a.shape().size());
-  }
-
-  void BufferReduce(const Tensor& a, float* buffer, std::set<size_t> reduced_indicies) {
-    std::function<void(Tensor, float*, size_t, size_t, size_t)> recursive_reduce = [&](Tensor t, float* buffer, size_t buffer_offset, size_t tensor_offset, size_t N) {
-      if (N == 0) {
-        buffer[buffer_offset] += t.data().get()[tensor_offset + t.offset()];
-      } else {
-        for (size_t i = 0; i < t.shape()[N - 1]; i++) {
-          size_t new_buffer_offset = reduced_indicies.count(N - 1) ? buffer_offset : buffer_offset + i * t.strides()[N - 1];
-          recursive_reduce(t, buffer, new_buffer_offset, tensor_offset + i * t.strides()[N - 1], N - 1);
-        }
-      }
-    };
-    recursive_reduce(a, buffer, 0, 0, a.shape().size());
-  }
-}
 
 // Standard tensor constructor with uninitialized data
 Tensor::Tensor(std::vector<size_t> shape) {
@@ -229,29 +198,16 @@ void View::operator=(const Tensor& other) {
   recursive_copy(*this, t);
 }
 
+View::View(const Tensor& t) : Tensor(t.shape(), t.strides(), t.offset(), t.data()) {}
+
 Tensor operator+(const Tensor& a, const Tensor& b) {
-  std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
-  size_t size = std::accumulate(broadcast_shape.begin(), broadcast_shape.end(), 1, std::multiplies<size_t>());
-  Tensor broadcast_a = Tensor::Broadcast(a, broadcast_shape);
-  Tensor broadcast_b = Tensor::Broadcast(b, broadcast_shape);
-
-  float* a_buffer = new float[size];
-  std::shared_ptr<float> b_buffer(new float[size], std::default_delete<float[]>());
-  detail::BufferCopy(broadcast_a, a_buffer);
-  detail::BufferCopy(broadcast_b, b_buffer.get());
-
-  glas::axpy(size, 1.0f, a_buffer, b_buffer.get());
-
-  std::vector<int> strides(broadcast_shape.size());
-  for (int i = (int) broadcast_shape.size() - 1, j = 1; i >= 0; i--) {
-    strides[i] = j;
-    j *= broadcast_shape[i];
-  }
-  Tensor result(broadcast_shape, strides, 0, b_buffer);
-  result.grad_fn_ = [broadcast_a, broadcast_b](Tensor grad) {
+  Tensor result = glas::add(a, b);
+  result.grad_fn_ = [a, b, result](Tensor grad) {
     std::set<size_t> a_reduced_indicies;
     std::set<size_t> b_reduced_indicies;
 
+    Tensor broadcast_a = Tensor::Broadcast(a, result.shape());
+    Tensor broadcast_b = Tensor::Broadcast(b, result.shape());
     
     for (size_t i = 0; i < broadcast_a.shape().size(); i++) {
       if (broadcast_a.strides()[i] == 0) {
@@ -263,22 +219,43 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
         b_reduced_indicies.insert(i);
       }
     }
-    std::shared_ptr<float> a_buffer(new float[broadcast_a.size()], std::default_delete<float[]>());
-    std::shared_ptr<float> b_buffer(new float[broadcast_b.size()], std::default_delete<float[]>());
-    std::fill(a_buffer.get(), a_buffer.get() + broadcast_a.size(), 0.0f);
-    std::fill(b_buffer.get(), b_buffer.get() + broadcast_b.size(), 0.0f);
-    detail::BufferReduce(grad, a_buffer.get(), a_reduced_indicies);
-    detail::BufferReduce(grad, b_buffer.get(), b_reduced_indicies);
+    std::shared_ptr<float> a_buffer(new float[a.size()], std::default_delete<float[]>());
+    std::shared_ptr<float> b_buffer(new float[b.size()], std::default_delete<float[]>());
+    std::fill(a_buffer.get(), a_buffer.get() + a.size(), 0.0f);
+    std::fill(b_buffer.get(), b_buffer.get() + b.size(), 0.0f);
+    utils::BufferReduce(grad, a_buffer.get(), a_reduced_indicies);
+    utils::BufferReduce(grad, b_buffer.get(), b_reduced_indicies);
 
-    broadcast_a.touch_grad();
-    broadcast_b.touch_grad();
+    a.touch_grad();
+    b.touch_grad();
 
 
-    glas::axpy(broadcast_a.size(), 1.0f, a_buffer.get(), broadcast_a.grad_data().get() + broadcast_a.offset());
-    glas::axpy(broadcast_b.size(), 1.0f, b_buffer.get(), broadcast_b.grad_data().get() + broadcast_b.offset());
+    glas::axpy(a.size(), 1.0f, a_buffer.get(), a.grad_data().get() + a.offset());
+    glas::axpy(b.size(), 1.0f, b_buffer.get(), b.grad_data().get() + b.offset());
 
   };
   return result;
 }
 
+Tensor Reduce(const Tensor& a, const std::set<size_t>& reduced_indicies) {
+  std::shared_ptr<float> buffer(new float[a.size()], std::default_delete<float[]>());
+  std::fill(buffer.get(), buffer.get() + a.size(), 0.0f);
+  utils::BufferReduce(a, buffer.get(), reduced_indicies);
+  Tensor result = Tensor(a.shape(), a.strides(), 0, buffer);
+  result.grad_fn_ = [a, reduced_indicies](Tensor grad) {
+    a.touch_grad();
+    // need to "unreduce" the gradient
+    std::vector<int> new_strides(a.shape().size());
+    for (size_t i = 0; i < a.shape().size(); i++) {
+      if (reduced_indicies.count(i)) {
+        new_strides[i] = 0;
+      } else {
+        new_strides[i] = a.strides()[i];
+      }
+    }
+    Tensor unreduced = Tensor(a.shape(), new_strides, grad.offset(), grad.data()); 
+    glas::add_(unreduced, a.grad());
+  };
+  return result;
+}
 }

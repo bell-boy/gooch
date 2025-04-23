@@ -131,6 +131,7 @@ public:
 class View : public Tensor {
 public:
   View(std::vector<size_t> shape, std::vector<int> strides, size_t offset, Tensor t);
+  View(const Tensor& t);
   void operator=(const Tensor& other);
 };
 
