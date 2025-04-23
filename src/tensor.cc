@@ -211,6 +211,7 @@ void update_grad(const Tensor& grad, const Tensor& op) {
     }
   }
 
+  // TODO: investigate optimization for buffer-reduce -- the only reduced indicies will be on the inside
   std::shared_ptr<float> buffer(new float[op.size()], std::default_delete<float[]>());
   std::fill(buffer.get(), buffer.get() + op.size(), 0.0f);
   utils::BufferReduce(grad, buffer.get(), reduced_indices);
@@ -219,7 +220,7 @@ void update_grad(const Tensor& grad, const Tensor& op) {
 
   Tensor buf_tensor(op.shape(), op.strides(), 0, buffer);
 
-  op.grad_fn_(grad);
+  if (op.grad_fn_) op.grad_fn_(grad);
 
   glas::add_(grad, op.grad());
 }
@@ -289,7 +290,6 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
 
     update_grad(a.grad(), a_grad);
     update_grad(b.grad(), b_grad);
-
   };
   return result;
 }
