@@ -50,7 +50,13 @@ void add_(const Tensor& a, const Tensor& b) {
   float* a_buffer = new float[b.size()];
   utils::BufferCopy(broadcast_a, a_buffer);
 
-  glas::axpy(b.size(), 1.0f, a_buffer, b.data().get());
+  float* b_buffer = new float[b.size()];
+  utils::BufferCopy(b, b_buffer);
+
+  glas::axpy(b.size(), 1.0f, a_buffer, b_buffer);
+  delete[] a_buffer;
+
+  utils::BufferAssign(b, b_buffer);
 }
 
 Tensor einsum(const std::string& equation, const Tensor& a, const Tensor& b) {

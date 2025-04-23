@@ -200,39 +200,35 @@ void View::operator=(const Tensor& other) {
 
 View::View(const Tensor& t) : Tensor(t.shape(), t.strides(), t.offset(), t.data()) {}
 
+void update_grad(const Tensor& grad, const Tensor& op) {
+  std::set<size_t> reduced_indices;
+
+  Tensor broadcast = Tensor::Broadcast(op, grad.shape());
+
+  for (size_t i = 0; i < broadcast.shape().size(); ++i) {
+    if (broadcast.strides()[i] == 0) {
+      reduced_indices.insert(i);
+    }
+  }
+
+  std::shared_ptr<float> buffer(new float[op.size()], std::default_delete<float[]>());
+  std::fill(buffer.get(), buffer.get() + op.size(), 0.0f);
+  utils::BufferReduce(grad, buffer.get(), reduced_indices);
+
+  op.touch_grad();
+
+  Tensor buf_tensor(op.shape(), op.strides(), 0, buffer);
+
+  op.grad_fn_(grad);
+
+  glas::add_(grad, op.grad());
+}
+
 Tensor operator+(const Tensor& a, const Tensor& b) {
   Tensor result = glas::add(a, b);
-  result.grad_fn_ = [a, b, result](Tensor grad) {
-    std::set<size_t> a_reduced_indicies;
-    std::set<size_t> b_reduced_indicies;
-
-    Tensor broadcast_a = Tensor::Broadcast(a, result.shape());
-    Tensor broadcast_b = Tensor::Broadcast(b, result.shape());
-    
-    for (size_t i = 0; i < broadcast_a.shape().size(); i++) {
-      if (broadcast_a.strides()[i] == 0) {
-        a_reduced_indicies.insert(i);
-      }
-    }
-    for (size_t i = 0; i < broadcast_b.shape().size(); i++) {
-      if (broadcast_b.strides()[i] == 0) {
-        b_reduced_indicies.insert(i);
-      }
-    }
-    std::shared_ptr<float> a_buffer(new float[a.size()], std::default_delete<float[]>());
-    std::shared_ptr<float> b_buffer(new float[b.size()], std::default_delete<float[]>());
-    std::fill(a_buffer.get(), a_buffer.get() + a.size(), 0.0f);
-    std::fill(b_buffer.get(), b_buffer.get() + b.size(), 0.0f);
-    utils::BufferReduce(grad, a_buffer.get(), a_reduced_indicies);
-    utils::BufferReduce(grad, b_buffer.get(), b_reduced_indicies);
-
-    a.touch_grad();
-    b.touch_grad();
-
-
-    glas::axpy(a.size(), 1.0f, a_buffer.get(), a.grad_data().get() + a.offset());
-    glas::axpy(b.size(), 1.0f, b_buffer.get(), b.grad_data().get() + b.offset());
-
+  result.grad_fn_ = [a, b] (Tensor grad) {
+    update_grad(grad, a);
+    update_grad(grad, b);
   };
   return result;
 }

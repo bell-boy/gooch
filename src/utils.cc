@@ -22,6 +22,7 @@ void BufferCopy(const Tensor& a, float* buffer) {
   recursive_copy(a, buffer, 0, 0, a.shape().size());
 }
 
+// Sums 'a' along the axes specified by 'reduced_indices.' Adds into 'buffer.'
 void BufferReduce(const Tensor& a, float* buffer, std::set<size_t> reduced_indicies) {
   std::function<void(Tensor, float*, size_t, size_t, size_t)> recursive_reduce = [&](Tensor t, float* buffer, size_t buffer_offset, size_t tensor_offset, size_t N) {
     if (N == 0) {
@@ -36,5 +37,10 @@ void BufferReduce(const Tensor& a, float* buffer, std::set<size_t> reduced_indic
   recursive_reduce(a, buffer, 0, 0, a.shape().size());
 }
 
+void BufferAssign(const Tensor& a, float* const buffer) {
+  Tensor b(a.shape(), a.strides(), 0, std::shared_ptr<float>(buffer));
+  View a_prime(a);
+  a_prime = b;
+}
 }
 }
