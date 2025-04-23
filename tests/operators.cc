@@ -30,6 +30,7 @@ int main() {
   gooch::Tensor a = gooch::FromVector(a_vec);
   gooch::Tensor b = gooch::FromVector(b_vec);
   gooch::Tensor c = a + b;
+
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < M; j++) {
       gooch::View view = c(i, j);

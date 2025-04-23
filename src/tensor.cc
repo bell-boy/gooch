@@ -56,18 +56,33 @@ Tensor::Tensor(std::vector<size_t> shape) {
   }
   data_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
   grad_ = std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr));
+  original_size_ = size_;
 }
 
 // View constructor
-Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size), grad_(grad) {}
+Tensor::Tensor(std::vector<size_t> shape, std::vector<int> strides, size_t offset, Tensor t) : shape_(shape), strides_(strides), data_(t.data_), grad_(t.grad_), offset_(offset), size_(t.size_), original_size_(t.original_size_) {}
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
   os << t.str();
   return os;
 }
 
+// new tensor w/ data
+Tensor::Tensor(std::vector<size_t> shape, std::vector<int> strides, size_t offset, std::shared_ptr<float> data) : shape_(shape), strides_(strides), data_(data), grad_(std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr))), offset_(offset), size_(std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>())), original_size_(std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>())) {}
+
 std::shared_ptr<float> Tensor::data() const {
   return this->data_;
+}
+
+std::shared_ptr<float> Tensor::grad_data() const {
+  return *this->grad_;
+}
+
+void Tensor::touch_grad() const {
+  if (*this->grad_ == nullptr) {
+    *this->grad_ = std::shared_ptr<float>(new float[original_size_], std::default_delete<float[]>());
+    std::fill((*this->grad_).get(), (*this->grad_).get() + original_size_, 0.0f);
+  }
 }
 
 std::vector<size_t> Tensor::shape() const {
@@ -137,7 +152,10 @@ Tensor Tensor::grad() const {
     *grad_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
     std::fill((*grad_).get(), (*grad_).get() + size_, 0.0f);
   }
-  return Tensor(*grad_, shape_, strides_, offset_, size_, grad_);
+  Tensor t(shape_, strides_, offset_, *grad_);
+  t.size_ = size_;
+  t.original_size_ = original_size_;
+  return t;
 }
 Slice::Slice(int start, int end, int step) {
   this->start_ = start;
@@ -161,7 +179,7 @@ Slice Slice::all() {
   return Slice(0, -1, 1);
 }
 
-View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad) : Tensor(data, shape, strides, offset, size, grad) {}
+View::View(std::vector<size_t> shape, std::vector<int> strides, size_t offset, Tensor t) : Tensor(shape, strides, offset, t) {}
 
 std::vector<size_t> Tensor::GetBroadcastShape(const Tensor& a, const Tensor& b) {
   Tensor larger = a.shape().size() > b.shape().size() ? a : b;
@@ -194,7 +212,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
       new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
     }
   }
-  return Tensor(a.data(), shape, new_strides, a.offset(), a.size(), a.grad_);
+  return Tensor(shape, new_strides, a.offset(), a);
 }
 
 void View::operator=(const Tensor& other) {
@@ -229,9 +247,7 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
     strides[i] = j;
     j *= broadcast_shape[i];
   }
-  Tensor result(b_buffer, broadcast_shape, strides, 0, size, std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr)));
-  result.is_leaf_ = false;
-
+  Tensor result(broadcast_shape, strides, 0, b_buffer);
   result.grad_fn_ = [broadcast_a, broadcast_b](Tensor grad) {
     std::set<size_t> a_reduced_indicies;
     std::set<size_t> b_reduced_indicies;
@@ -254,17 +270,12 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
     detail::BufferReduce(grad, a_buffer.get(), a_reduced_indicies);
     detail::BufferReduce(grad, b_buffer.get(), b_reduced_indicies);
 
-    if (*broadcast_a.grad_ == nullptr) {
-      *broadcast_a.grad_ = std::shared_ptr<float>(new float[broadcast_a.size()], std::default_delete<float[]>());
-      std::fill((*broadcast_a.grad_).get(), (*broadcast_a.grad_).get() + broadcast_a.size(), 0.0f);
-    }
-    if (*broadcast_b.grad_ == nullptr) {
-      *broadcast_b.grad_ = std::shared_ptr<float>(new float[broadcast_b.size()], std::default_delete<float[]>());
-      std::fill((*broadcast_b.grad_).get(), (*broadcast_b.grad_).get() + broadcast_b.size(), 0.0f);
-    }
+    broadcast_a.touch_grad();
+    broadcast_b.touch_grad();
 
-    glas::axpy(broadcast_a.size(), 1.0f, a_buffer.get(), (*broadcast_a.grad_).get());
-    glas::axpy(broadcast_b.size(), 1.0f, b_buffer.get(), (*broadcast_b.grad_).get());
+
+    glas::axpy(broadcast_a.size(), 1.0f, a_buffer.get(), broadcast_a.grad_data().get() + broadcast_a.offset());
+    glas::axpy(broadcast_b.size(), 1.0f, b_buffer.get(), broadcast_b.grad_data().get() + broadcast_b.offset());
 
   };
   return result;
