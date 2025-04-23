@@ -59,9 +59,7 @@ Tensor::Tensor(std::vector<size_t> shape) {
 }
 
 // View constructor
-Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size) {
-  grad_ = std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr));
-}
+Tensor::Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad) : data_(data), shape_(shape), strides_(strides), offset_(offset), size_(size), grad_(grad) {}
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
   os << t.str();
@@ -139,7 +137,7 @@ Tensor Tensor::grad() const {
     *grad_ = std::shared_ptr<float>(new float[size_], std::default_delete<float[]>());
     std::fill((*grad_).get(), (*grad_).get() + size_, 0.0f);
   }
-  return Tensor(*grad_, shape_, strides_, offset_, size_);
+  return Tensor(*grad_, shape_, strides_, offset_, size_, grad_);
 }
 Slice::Slice(int start, int end, int step) {
   this->start_ = start;
@@ -163,7 +161,7 @@ Slice Slice::all() {
   return Slice(0, -1, 1);
 }
 
-View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size) : Tensor(data, shape, strides, offset, size) {}
+View::View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad) : Tensor(data, shape, strides, offset, size, grad) {}
 
 std::vector<size_t> Tensor::GetBroadcastShape(const Tensor& a, const Tensor& b) {
   Tensor larger = a.shape().size() > b.shape().size() ? a : b;
@@ -196,7 +194,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
       new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
     }
   }
-  return Tensor(a.data(), shape, new_strides, a.offset(), a.size());
+  return Tensor(a.data(), shape, new_strides, a.offset(), a.size(), a.grad_);
 }
 
 void View::operator=(const Tensor& other) {
@@ -231,7 +229,7 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
     strides[i] = j;
     j *= broadcast_shape[i];
   }
-  Tensor result(b_buffer, broadcast_shape, strides, 0, size);
+  Tensor result(b_buffer, broadcast_shape, strides, 0, size, std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr)));
   result.is_leaf_ = false;
 
   result.grad_fn_ = [broadcast_a, broadcast_b](Tensor grad) {
@@ -267,6 +265,7 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
 
     glas::axpy(broadcast_a.size(), 1.0f, a_buffer.get(), (*broadcast_a.grad_).get());
     glas::axpy(broadcast_b.size(), 1.0f, b_buffer.get(), (*broadcast_b.grad_).get());
+
   };
   return result;
 }

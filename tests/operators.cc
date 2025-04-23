@@ -38,10 +38,5 @@ int main() {
     }
   }
 
-  gooch::Tensor x = gooch::FromVector(1.0f);
-  gooch::Tensor y = gooch::FromVector(std::vector<std::vector<float>>{{1, 2}, {3, 4}});
-  gooch::Tensor z = x + y;
-  z.grad()(gooch::Slice::all()) = gooch::FromVector(std::vector<std::vector<float>>{{1, 1}, {1, 1}});
-  std::cout << z.grad() << std::endl;
   return 0;
 }

@@ -90,17 +90,17 @@ class View;
 class Tensor {
 protected:
   std::shared_ptr<float> data_;
-  std::shared_ptr<std::shared_ptr<float>> grad_;
   bool is_leaf_;
   std::vector<size_t> shape_;
   std::vector<int> strides_;
-  std::function<void(Tensor)> grad_fn_;
   size_t offset_;
   size_t size_;
 
 public:
+  std::function<void(Tensor)> grad_fn_;
+  std::shared_ptr<std::shared_ptr<float>> grad_;
   Tensor(std::vector<size_t> shape);
-  Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
+  Tensor(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad);
   template<typename... Args>
   View operator()(Args... indices);
   friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
@@ -124,7 +124,7 @@ public:
 
 class View : public Tensor {
 public:
-  View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size);
+  View(std::shared_ptr<float> data, std::vector<size_t> shape, std::vector<int> strides, size_t offset, size_t size, std::shared_ptr<std::shared_ptr<float>> grad);
   void operator=(const Tensor& other);
 };
 
@@ -154,7 +154,7 @@ View Tensor::operator()(Args... indices) {
     new_strides.push_back(strides_[i]);
     new_size *= shape_[i];
   }
-  return View(data_, new_shape, new_strides, new_offset, new_size);
+  return View(data_, new_shape, new_strides, new_offset, new_size, grad_);
 }
 
 Tensor zeros(std::vector<size_t> shape);
@@ -183,7 +183,7 @@ Tensor FromVector(T data) {
     }
     std::shared_ptr<float> data_ptr = std::shared_ptr<float>(new float[size], std::default_delete<float[]>());
     detail::recursive_fill(data, data_ptr, 0, 0, strides);
-    Tensor t(data_ptr, shape, strides, 0, size);
+    Tensor t(data_ptr, shape, strides, 0, size, std::shared_ptr<std::shared_ptr<float>>(new std::shared_ptr<float>(nullptr)));
     return t;
   }
 }
