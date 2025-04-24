@@ -18,6 +18,11 @@ void neg_simd(size_t N, float* y);
 Tensor neg(const Tensor& a);
 void inv_simd(size_t N, float* y);
 Tensor inv(const Tensor& a);
+void log_buf(size_t N, float* y);
+Tensor log(const Tensor& a);
+void exp_buf(size_t N, float* y);
+Tensor exp(const Tensor& a);
 Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation);
+Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unordered_set<size_t> axes, float fill);
 }
 }
