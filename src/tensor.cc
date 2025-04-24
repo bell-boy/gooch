@@ -264,7 +264,7 @@ Tensor operator*(const Tensor& a, const Tensor& b) {
 Tensor operator/(const Tensor& a, const Tensor& b) {
   Tensor result = glas::div(a, b);
   result.grad_fn_ = [a, b, result] (Tensor grad) {
-    Tensor a_grad = glas::inv(b);
+    Tensor a_grad = glas::mul(glas::inv(b), grad);
     Tensor b_grad = glas::neg(glas::mul(a_grad, result));
     update_grad(a_grad, a);
     update_grad(b_grad, b);
