@@ -4,6 +4,8 @@
 
 #include <immintrin.h>
 #include <map>
+#include <cmath>
+#include <unordered_set>
 
 namespace gooch {
 namespace glas {
@@ -85,7 +87,7 @@ Tensor mul(const Tensor& a, const Tensor& b) {
 void div_simd(size_t N, const float* x, float* y) {
   binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_div_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
-    y[i] /= x[i];
+    y[i] = x[i] / y[i];
   }
 }
 
@@ -96,7 +98,7 @@ Tensor div(const Tensor& a, const Tensor& b) {
 void sub_simd(size_t N, const float* x, float* y) {
   binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_sub_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
-    y[i] -= x[i];
+    y[i] = x[i] - y[i];
   }
 }
 
@@ -142,6 +144,26 @@ void inv_simd(size_t N, float* y) {
 
 Tensor inv(const Tensor& a) {
   return unary_op(a, inv_simd);
+}
+
+void log_buf(size_t N, float* y) {
+  for (size_t i = 0; i < N; ++i) {
+    y[i] = std::log(y[i]);
+  }
+}
+
+Tensor log(const Tensor& a) {
+  return unary_op(a, log_buf);
+}
+
+void exp_buf(size_t N, float* y) {
+  for (size_t i = 0; i < N; ++i) {
+    y[i] = std::exp(y[i]);
+  }
+}
+
+Tensor exp(const Tensor& a) {
+  return unary_op(a, exp_buf);
 }
 
 Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
@@ -239,5 +261,33 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
   return Tensor(c_shape, c_strides, 0, c_buffer);
 }
 
+Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unordered_set<size_t> axes, float fill) {
+  size_t size = 1;
+  std::vector<size_t> shape;
+  for (size_t i = 0; i < a.shape().size(); ++i) {
+    if (axes.find(i) == axes.end()) {
+      size *= a.shape()[i];
+      shape.push_back(a.shape()[i]);
+    }
+  }
+
+  std::shared_ptr<float> buffer(new float[size], std::default_delete<float[]>());
+  std::fill(buffer.get(), buffer.get() + size, fill);
+
+  std::function<void(size_t, int, int)> recursive_reduce = [a, op, axes, fill, buffer, size, recursive_reduce] (size_t depth, int buffer_offset, int tensor_offset) {
+    if (depth == a.shape().size()) {
+      buffer.get()[buffer_offset] = op(buffer.get()[buffer_offset], a.data().get()[a.offset() + tensor_offset]);
+    }
+    else {
+      for (size_t i = 0; i < a.shape()[depth]; ++i) {
+        int offset_inc = ((int) i) * a.strides()[depth];
+        recursive_reduce(depth + 1, buffer_offset + (axes.find(i) != axes.end() ? 0 : offset_inc), tensor_offset + offset_inc);
+      }
+    }
+  };
+  recursive_reduce(0, 0, 0);
+
+  return Tensor(shape, utils::compute_strides(shape), 0, buffer);
+}
 }
 }
