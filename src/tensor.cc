@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <immintrin.h>
 #include <set>
+#include <random>
 
 namespace gooch {
 
@@ -150,7 +151,7 @@ void Tensor::Backward() {
 }
 
 void Tensor::ZeroGrad() {
-  grad_ = nullptr;
+  *grad_ = nullptr;
 }
 
 Slice::Slice(int start, int end, int step) {
