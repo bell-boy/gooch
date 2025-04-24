@@ -87,7 +87,7 @@ Tensor mul(const Tensor& a, const Tensor& b) {
 void div_simd(size_t N, const float* x, float* y) {
   binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_div_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
-    y[i] /= x[i];
+    y[i] = x[i] / y[i];
   }
 }
 
@@ -98,7 +98,7 @@ Tensor div(const Tensor& a, const Tensor& b) {
 void sub_simd(size_t N, const float* x, float* y) {
   binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_sub_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
-    y[i] -= x[i];
+    y[i] = x[i] - y[i];
   }
 }
 
