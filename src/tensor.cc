@@ -367,7 +367,7 @@ Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
   Tensor max = glas::reduceMax(a, axes);
   Tensor result = glas::add(max, glas::reduceSum(glas::exp(glas::sub(a, max)), axes));
   result.grad_fn_ = [a, result] (Tensor grad) {
-    Tensor a_grad = glas::exp(glas::sub(a, result));
+    Tensor a_grad = glas::mul(grad, glas::exp(glas::sub(a, result)));
     update_grad(a_grad, a);
   };
   return result;
@@ -379,7 +379,7 @@ Tensor crossEntropyLoss(Tensor& a, std::vector<size_t> correct) {
   std::unordered_set<size_t> axes = {1};
   Tensor lse = logSumExp(a, axes);
   for (size_t i = 0; i < N; ++i) {
-    result = result + lse(i) - a(i, correct[i]);
+    result = result + lse((int) i) - a((int) i, (int) correct[i]);
   }
   return result;
 }
