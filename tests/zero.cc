@@ -5,6 +5,7 @@
 
 int main() {
   gooch::Tensor t = gooch::zeros({100, 100, 100});
+  /*
   float value = 0;
   for (size_t i = 0; i < t.shape()[0]; i++) {
     for (size_t j = 0; j < t.shape()[1]; j++) {
@@ -26,4 +27,5 @@ int main() {
       }
     }
   }
+  */
 }
