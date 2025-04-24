@@ -6,6 +6,7 @@ int main() {
   gooch::Tensor c = gooch::Einsum(a, b, "i j, i -> j");
   std::cout << a << std::endl << b << std::endl << c << std::endl;
   c(0).Backward();
+  std::cout << "grads:" << std::endl;
   std::cout << a.grad() << std::endl << b.grad() << std::endl << c.grad() << std::endl;
   return 0;
 }

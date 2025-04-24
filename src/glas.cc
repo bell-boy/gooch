@@ -339,7 +339,7 @@ Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unord
     else {
       for (size_t i = 0; i < a.shape()[depth]; ++i) {
         int offset_inc = ((int) i) * a.strides()[depth];
-        int buffer_offset_inc = axes.find(i) != axes.end() ? 0 : ((int) i) * std::accumulate(a.shape().begin() + depth + 1, a.shape().end(), 1, std::multiplies<size_t>());
+        int buffer_offset_inc = axes.find(i) != axes.end() ? 0 : ((int) i) * utils::compute_strides(a.shape())[depth];
         recursive_reduce(depth + 1, buffer_offset + buffer_offset_inc, tensor_offset + offset_inc);
       }
     }
