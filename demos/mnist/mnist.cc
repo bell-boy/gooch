@@ -1,8 +1,15 @@
-#include <bits/stdc++.h>
 #define pb push_back
 #define f first
 #define s second
 #define sz(i) (int)i.size()
+#include "mnist.h"
+
+#include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <utility>
 using namespace std;
 /*
  _______________________________________
@@ -18,7 +25,7 @@ using namespace std;
                 ||     ||
 */
 const int MAXN = 10000;
-pair<vector<int> , vector<vector<float>>> getMnist(std::string path = "mnist_test.csv"){ // label set , image set
+pair<vector<int> , vector<vector<float>>> GetMnist(std::string path = "mnist_test.csv"){ // label set , image set
     cin.tie(0)->sync_with_stdio(0);
     ifstream cin(path);
     string temp;
@@ -32,7 +39,7 @@ pair<vector<int> , vector<vector<float>>> getMnist(std::string path = "mnist_tes
         bool label = true;
         while(getline(ss , token , ',')){
             if(!label)
-                currImage.pb(stof(token));
+                currImage.pb(stof(token) / 255.0f);
             else
                 labels.pb(stoi(token));
             label = false;
@@ -41,9 +48,4 @@ pair<vector<int> , vector<vector<float>>> getMnist(std::string path = "mnist_tes
     }
     cin.close();
     return {labels , ans};
-}
-
-int main(){
-    auto item = getMnist();
-    cout << sz(item.s) << "\n";
 }

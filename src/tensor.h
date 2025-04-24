@@ -112,7 +112,7 @@ public:
   Tensor(std::vector<size_t> shape, std::vector<int> strides, size_t offset, std::shared_ptr<float> data); // create a new tensor with the given shape and strides, and data
 
   template<typename... Args>
-  View operator()(Args... indices);
+  View operator()(Args... indices) const;
   friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
   std::shared_ptr<float> data() const;
@@ -150,7 +150,7 @@ void update_grad(const Tensor& grad, const Tensor& op);
 
 
 template<typename... Args>
-View Tensor::operator()(Args... indices) {
+View Tensor::operator()(Args... indices) const {
   std::vector<Slice> slices = {indices...};
   std::vector<size_t> new_shape;
   std::vector<int> new_strides;
