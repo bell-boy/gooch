@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -I./src -g -O0 -mavx
+CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -I./src -g -O3 -mavx
 
 BUILD_CC_FILES := ${wildcard src/*.cc}
 BUILD_HEADERS := ${wildcard src/*.h}
@@ -15,6 +15,11 @@ TEST_DIFFS := ${patsubst tests/%.cc,build/tests/%.diff,${TEST_CC_FILES}}
 
 OBJS := ${patsubst src/%.cc,build/%.o,${BUILD_CC_FILES}}
 TEST_OBJS := ${patsubst tests/%.cc,build/tests/%.o,${TEST_CC_FILES}}
+
+DEMO_SUBDIRS := $(filter %/, $(wildcard demos/*/))
+DEMO_NAMES := $(patsubst demos/%/,%,${DEMO_SUBDIRS})
+DEMO_CC_FILES := $(wildcard demos/*/*.cc)
+DEMO_OBJS := $(patsubst demos/%.cc,build/demos/%.o,$(DEMO_CC_FILES))
 
 ${OBJS}: build/%.o: src/%.cc ${BUILD_HEADERS} ${TEST_HEADERS} Makefile
 	mkdir -p $(dir $@)
@@ -50,3 +55,19 @@ test: ${TEST_RUNS} ${TEST_OUTS} ${TEST_RESULTS}
 .PHONY: clean
 clean:
 	rm -rf build
+
+# Pattern rule: compile any .cc inside demos directory to an object in build/demos keeping subfolder structure
+build/demos/%.o: demos/%.cc ${BUILD_HEADERS} Makefile
+	mkdir -p $(dir $@)
+	${CXX} ${CXXFLAGS} -c $< -o $@
+
+# Executable paths
+DEMO_RUNS := $(addprefix build/demos/,$(addsuffix .run,$(DEMO_NAMES)))
+
+# Link only objects for the specific demo (located in build/demos/<name>/)
+build/demos/%.run: $(OBJS) $(wildcard build/demos/%/*.o) Makefile ${DEMO_OBJS}
+	${CXX} ${CXXFLAGS} $(filter %.o,$^)  -o $@
+
+.PHONY: demos
+# Build all demo executables
+demos: ${DEMO_RUNS}

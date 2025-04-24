@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <immintrin.h>
 #include <set>
+#include <unordered_set>
 #include <random>
 
 namespace gooch {
@@ -206,7 +207,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
       new_strides[i] = 0;
     } else {
       assert(a.shape()[a_index] == shape[i] || a.shape()[a_index] == 1);
-      new_strides[i] = a.strides()[a_index];
+      new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
     }
   }
   return Tensor(shape, new_strides, a.offset(), a);
@@ -229,26 +230,26 @@ void View::operator=(const Tensor& other) {
 View::View(const Tensor& t) : Tensor(t.shape(), t.strides(), t.offset(), t.data()) {}
 
 void update_grad(const Tensor& grad, const Tensor& op) {
-  std::set<size_t> reduced_indices;
+  std::unordered_set<size_t> axes;
 
   Tensor broadcast = Tensor::Broadcast(op, grad.shape());
 
+  // TODO: double check
   for (size_t i = 0; i < broadcast.shape().size(); ++i) {
     if (broadcast.strides()[i] == 0) {
-      reduced_indices.insert(i);
+      int reverse_index = (int) op.shape().size() - (int) (broadcast.shape().size() - i - 1);
+      if (reverse_index >= 0 && broadcast.shape()[i] != op.shape()[reverse_index]) {
+        axes.insert(i);
+      }
     }
   }
 
   // TODO: investigate optimization for buffer-reduce -- the only reduced indicies will be on the inside
-  std::shared_ptr<float> buffer(new float[op.size()], std::default_delete<float[]>());
-  std::fill(buffer.get(), buffer.get() + op.size(), 0.0f);
-  utils::BufferReduce(grad, buffer.get(), reduced_indices);
+  Tensor reduced_grad = glas::reduce(grad, [] (float a, float b) { return a + b; }, axes, 0.0f);
 
   op.TouchGrad();
 
-  Tensor buf_tensor(op.shape(), op.strides(), 0, buffer);
-
-  glas::add_(grad, op.grad());
+  glas::add_(reduced_grad, op.grad());
 
   if (op.grad_fn_) op.grad_fn_(grad);
 }
@@ -303,28 +304,6 @@ Tensor operator-(const Tensor& a) {
   return result;
 }
 
-Tensor Reduce(const Tensor& a, const std::set<size_t>& reduced_indicies) {
-  std::shared_ptr<float> buffer(new float[a.size()], std::default_delete<float[]>());
-  std::fill(buffer.get(), buffer.get() + a.size(), 0.0f);
-  utils::BufferReduce(a, buffer.get(), reduced_indicies);
-  Tensor result = Tensor(a.shape(), a.strides(), 0, buffer);
-  result.grad_fn_ = [a, reduced_indicies](Tensor grad) {
-    a.TouchGrad();
-    // need to "unreduce" the gradient
-    std::vector<int> new_strides(a.shape().size());
-    for (size_t i = 0; i < a.shape().size(); i++) {
-      if (reduced_indicies.count(i)) {
-        new_strides[i] = 0;
-      } else {
-        new_strides[i] = a.strides()[i];
-      }
-    }
-    Tensor unreduced = Tensor(a.shape(), new_strides, grad.offset(), grad.data()); 
-    glas::add_(unreduced, a.grad());
-  };
-  return result;
-}
-
 Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
   Tensor result = glas::einsum(a, b, equation); 
   result.grad_fn_ = [a, b, equation](Tensor grad) {
@@ -362,6 +341,24 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
 
     update_grad(a_grad, a);
     update_grad(b_grad, b);
+  };
+  return result;
+}
+
+Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
+  Tensor result = glas::reduce(a, [] (float x, float y) { return x + y; }, axes, 0.0f);
+  result.grad_fn_ = [a, axes] (Tensor grad) {
+    std::vector<int> strides(a.strides().size());
+    for (size_t i = 0; i < a.shape().size(); ++i) {
+      if (axes.find(i) != axes.end()) {
+        strides[i] = 0;
+      }
+      else {
+        strides[i] = a.strides()[i];
+      }
+    }
+    Tensor a_grad(a.shape(), strides, grad.offset(), grad.data());
+    update_grad(a_grad, a);
   };
   return result;
 }
