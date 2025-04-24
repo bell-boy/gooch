@@ -236,9 +236,9 @@ void update_grad(const Tensor& grad, const Tensor& op) {
 
   Tensor buf_tensor(op.shape(), op.strides(), 0, buffer);
 
-  if (op.grad_fn_) op.grad_fn_(grad);
-
   glas::add_(grad, op.grad());
+
+  if (op.grad_fn_) op.grad_fn_(grad);
 }
 
 Tensor operator+(const Tensor& a, const Tensor& b) {
@@ -257,6 +257,36 @@ Tensor operator*(const Tensor& a, const Tensor& b) {
     Tensor b_grad = glas::mul(grad, a);
     update_grad(a_grad, a);
     update_grad(b_grad, b);
+  };
+  return result;
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+  Tensor result = glas::div(a, b);
+  result.grad_fn_ = [a, b, result] (Tensor grad) {
+    Tensor a_grad = glas::inv(b);
+    Tensor b_grad = glas::neg(glas::mul(a_grad, result));
+    update_grad(a_grad, a);
+    update_grad(b_grad, b);
+  };
+  return result;
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+  Tensor result = glas::sub(a, b);
+  result.grad_fn_ = [a, b] (Tensor grad) {
+    Tensor b_grad = glas::neg(grad);
+    update_grad(grad, a);
+    update_grad(b_grad, b);
+  };
+  return result;
+}
+
+Tensor operator-(const Tensor& a) {
+  Tensor result = glas::neg(a);
+  result.grad_fn_ = [a] (Tensor grad) {
+    Tensor a_grad = glas::neg(grad);
+    update_grad(a_grad, a);
   };
   return result;
 }
