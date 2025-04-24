@@ -19,5 +19,9 @@ Tensor neg(const Tensor& a);
 void inv_simd(size_t N, float* y);
 Tensor inv(const Tensor& a);
 Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation);
+void root_buf(size_t N, float* y);
+Tensor root(const Tensor& a);
+void mul_cons_simd(size_t N, float* y, float x);
+
 }
 }

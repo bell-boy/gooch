@@ -133,6 +133,13 @@ Tensor neg(const Tensor& a) {
   return unary_op(a, neg_simd);
 }
 
+void mul_cons_simd(size_t N, float* y, float x) {
+  unary_op_simd8(N, y, x, [] (__m256 x_vec, __m256 y_vec) { return _mm256_mul_ps(x_vec, y_vec); });
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] *= x;
+  }
+}
+
 void inv_simd(size_t N, float* y) {
   unary_op_simd8(N, y, 1, [] (__m256 x_vec, __m256 y_vec) { return _mm256_div_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
@@ -239,5 +246,17 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
   return Tensor(c_shape, c_strides, 0, c_buffer);
 }
 
+  void root_buf(size_t N, float* y) {
+    for (size_t i = 0; i < N; ++i) {
+      y[i] = std::sqrt(y[i]);
+    }
+  }
+
+  Tensor root(const Tensor& a) {
+    return unary_op(a, root_buf);
+  }
 }
+
+
+
 }
