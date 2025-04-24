@@ -47,7 +47,7 @@ std::shared_ptr<float> Tensor::grad_data() const {
   return *this->grad_;
 }
 
-void Tensor::touch_grad() const {
+void Tensor::TouchGrad() const {
   if (*this->grad_ == nullptr) {
     *this->grad_ = std::shared_ptr<float>(new float[original_size_], std::default_delete<float[]>());
     std::fill((*this->grad_).get(), (*this->grad_).get() + original_size_, 0.0f);
@@ -126,6 +126,22 @@ Tensor Tensor::grad() const {
   t.original_size_ = original_size_;
   return t;
 }
+
+// backward is only defined on scalar tensors
+void Tensor::Backward() {
+  if (size_ != 0) {
+    std::invalid_argument("Backward can only be called on scalar tensors");
+  }
+  if (!grad_fn_) {
+    std::invalid_argument("Tensor must have grad function defined");
+  }
+  grad_fn_(FromVector(1.0f));
+}
+
+void Tensor::ZeroGrad() {
+  grad_ = nullptr;
+}
+
 Slice::Slice(int start, int end, int step) {
   this->start_ = start;
   this->end_ = end;
@@ -216,7 +232,7 @@ void update_grad(const Tensor& grad, const Tensor& op) {
   std::fill(buffer.get(), buffer.get() + op.size(), 0.0f);
   utils::BufferReduce(grad, buffer.get(), reduced_indices);
 
-  op.touch_grad();
+  op.TouchGrad();
 
   Tensor buf_tensor(op.shape(), op.strides(), 0, buffer);
 
@@ -240,7 +256,7 @@ Tensor Reduce(const Tensor& a, const std::set<size_t>& reduced_indicies) {
   utils::BufferReduce(a, buffer.get(), reduced_indicies);
   Tensor result = Tensor(a.shape(), a.strides(), 0, buffer);
   result.grad_fn_ = [a, reduced_indicies](Tensor grad) {
-    a.touch_grad();
+    a.TouchGrad();
     // need to "unreduce" the gradient
     std::vector<int> new_strides(a.shape().size());
     for (size_t i = 0; i < a.shape().size(); i++) {

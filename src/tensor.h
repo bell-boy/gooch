@@ -106,13 +106,14 @@ public:
   Tensor(std::vector<size_t> shape); // creates a tensor with no data
   Tensor(std::vector<size_t> shape, std::vector<int> strides, size_t offset, Tensor t); // creates a view of t
   Tensor(std::vector<size_t> shape, std::vector<int> strides, size_t offset, std::shared_ptr<float> data); // create a new tensor with the given shape and strides, and data
+
   template<typename... Args>
   View operator()(Args... indices);
   friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
   std::shared_ptr<float> data() const;
   std::shared_ptr<float> grad_data() const;
-  void touch_grad() const;
+  void TouchGrad() const;
   std::vector<size_t> shape() const;
   size_t size() const;
   size_t offset() const;
@@ -120,6 +121,8 @@ public:
   std::string str() const;
 
   Tensor grad() const;
+  void Backward();
+  void ZeroGrad();
 
 
 
@@ -134,6 +137,12 @@ public:
   View(const Tensor& t);
   void operator=(const Tensor& other);
 };
+
+
+Tensor zeros(std::vector<size_t> shape);
+Tensor ones(std::vector<size_t> shape);
+void update_grad(const Tensor& grad, const Tensor& op);
+
 
 template<typename... Args>
 View Tensor::operator()(Args... indices) {
@@ -161,11 +170,15 @@ View Tensor::operator()(Args... indices) {
     new_strides.push_back(strides_[i]);
     new_size *= shape_[i];
   }
-  return View(new_shape, new_strides, new_offset, *this);
+  View result = View(new_shape, new_strides, new_offset, *this);
+  result.grad_fn_ = [this, result](Tensor grad) {
+    Tensor new_grad = zeros(shape_);
+    View(result.shape(), utils::compute_strides(result.shape()), 0, new_grad) = grad;
+    update_grad(new_grad, *this);
+  };
+  return result;
 }
 
-Tensor zeros(std::vector<size_t> shape);
-Tensor ones(std::vector<size_t> shape);
 
 // Vector constructor
 template<typename T>
