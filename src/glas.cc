@@ -332,14 +332,15 @@ Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unord
   std::shared_ptr<float> buffer(new float[size], std::default_delete<float[]>());
   std::fill(buffer.get(), buffer.get() + size, fill);
 
-  std::function<void(size_t, int, int)> recursive_reduce = [a, op, axes, fill, buffer, size, recursive_reduce] (size_t depth, int buffer_offset, int tensor_offset) {
+  std::function<void(size_t, int, int)> recursive_reduce = [a, op, axes, fill, buffer, size, &recursive_reduce] (size_t depth, int buffer_offset, int tensor_offset) {
     if (depth == a.shape().size()) {
       buffer.get()[buffer_offset] = op(buffer.get()[buffer_offset], a.data().get()[a.offset() + tensor_offset]);
     }
     else {
       for (size_t i = 0; i < a.shape()[depth]; ++i) {
         int offset_inc = ((int) i) * a.strides()[depth];
-        recursive_reduce(depth + 1, buffer_offset + (axes.find(i) != axes.end() ? 0 : offset_inc), tensor_offset + offset_inc);
+        int buffer_offset_inc = axes.find(i) != axes.end() ? 0 : ((int) i) * std::accumulate(a.shape().begin() + depth + 1, a.shape().end(), 1, std::multiplies<size_t>());
+        recursive_reduce(depth + 1, buffer_offset + buffer_offset_inc, tensor_offset + offset_inc);
       }
     }
   };
