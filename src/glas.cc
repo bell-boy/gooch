@@ -49,28 +49,97 @@ void add_(const Tensor& a, const Tensor& b) {
   utils::BufferAssign(b, b_buffer.get());
 }
 
-void mul_simd(size_t N, const float* x, float* y) {
+void binary_op_simd8(size_t N, const float* x, float* y, __m256 (*op) (__m256, __m256)) {
   for (size_t i = 0; i < (N - N % 8); i += 8) {
     __m256 x_vec = _mm256_loadu_ps(x + i);
     __m256 y_vec = _mm256_loadu_ps(y + i);
-    y_vec = _mm256_mul_ps(x_vec, y_vec);
+    y_vec = op(x_vec, y_vec);
     _mm256_storeu_ps(y + i, y_vec);
-  }
-  for (size_t i = (N - N % 8); i < N; ++i) {
-    y[i] *= x[i];
   }
 }
 
-Tensor mul(const Tensor& a, const Tensor& b) {
+Tensor binary_op(const Tensor& a, const Tensor& b, void (*op)(size_t, const float*, float*)) {
   std::vector<size_t> broadcast_shape = Tensor::GetBroadcastShape(a, b);
   size_t broadcast_size = std::accumulate(broadcast_shape.begin(), broadcast_shape.end(), 1, std::multiplies<size_t>());
 
   std::shared_ptr<float> a_buffer = utils::broadcast_tensor_to_buf(a, broadcast_shape, broadcast_size);
   std::shared_ptr<float> b_buffer = utils::broadcast_tensor_to_buf(b, broadcast_shape, broadcast_size);
 
-  glas::mul_simd(broadcast_size, a_buffer.get(), b_buffer.get());
+  op(broadcast_size, a_buffer.get(), b_buffer.get());
 
   return Tensor(broadcast_shape, utils::compute_strides(broadcast_shape), 0, b_buffer);
+}
+
+void mul_simd(size_t N, const float* x, float* y) {
+  binary_op_simd8(N, x, y, _mm256_mul_ps);
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] *= x[i];
+  }
+}
+
+Tensor mul(const Tensor& a, const Tensor& b) {
+  return binary_op(a, b, mul_simd);
+}
+
+void div_simd(size_t N, const float* x, float* y) {
+  binary_op_simd8(N, x, y, _mm256_div_ps);
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] /= x[i];
+  }
+}
+
+Tensor div(const Tensor& a, const Tensor& b) {
+  return binary_op(a, b, div_simd);
+}
+
+void sub_simd(size_t N, const float* x, float* y) {
+  binary_op_simd8(N, x, y, _mm256_sub_ps);
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] -= x[i];
+  }
+}
+
+Tensor sub(const Tensor& a, const Tensor& b) {
+  return binary_op(a, b, sub_simd);
+}
+
+void unary_op_simd8(size_t N, float* y, float alpha, __m256 (*op) (__m256, __m256)) {
+  const __m256 alpha_vec = _mm256_set1_ps(alpha);
+  for (size_t i = 0; i < (N - N % 8); i += 8) {
+    __m256 y_vec = _mm256_loadu_ps(y + i);
+    y_vec = op(alpha_vec, y_vec);
+    _mm256_storeu_ps(y + i, y_vec);
+  }
+}
+
+Tensor unary_op(const Tensor& a, void (*op) (size_t, float*)) {
+  std::shared_ptr<float> buffer = utils::broadcast_tensor_to_buf(a, a.shape(), a.size());
+
+  op(a.size(), buffer.get());
+
+  return Tensor(a.shape(), a.strides(), 0, buffer);
+}
+
+void neg_simd(size_t N, float* y) {
+  unary_op_simd8(N, y, -1, _mm256_mul_ps);
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] *= -1;
+  }
+}
+
+Tensor neg(const Tensor& a) {
+  return unary_op(a, neg_simd);
+}
+
+void inv_simd(size_t N, float* y) {
+  unary_op_simd8(N, y, 1, _mm256_div_ps);
+  for (size_t i = (N - N % 8); i < N; ++i) {
+    y[i] = 1 / y[i];
+  }
+}
+
+Tensor inv(const Tensor& a) {
+  return unary_op(a, inv_simd);
 }
 
 Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
