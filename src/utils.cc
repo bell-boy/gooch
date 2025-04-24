@@ -50,10 +50,10 @@ std::shared_ptr<float> broadcast_tensor_to_buf(const Tensor& a, const std::vecto
   return buffer;
 }
 
-std::vector<int> compute_strides(std::vector<size_t>& shape) {
+std::vector<int> compute_strides(const std::vector<size_t>& shape) {
   std::vector<int> strides(shape.size());
   int shape_accumulator = 1;
-  for (size_t i = strides.size() - 1; i >= 0; --i) {
+  for (int i = (int) strides.size() - 1; i >= 0; --i) {
     strides[i] = shape_accumulator;
     shape_accumulator *= shape[i];
   }

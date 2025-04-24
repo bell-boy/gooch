@@ -129,7 +129,7 @@ Tensor Tensor::grad() const {
 
 // backward is only defined on scalar tensors
 void Tensor::Backward() {
-  if (size_ != 0) {
+  if (size_ != 1) {
     std::invalid_argument("Backward can only be called on scalar tensors");
   }
   if (!grad_fn_) {
@@ -312,8 +312,13 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
       }
     }
 
+
     Tensor a_grad = glas::einsum(grad, b, c_string + ", " + b_string + " -> " + a_string);
+    std::cout << a_grad << std::endl;
     Tensor b_grad = glas::einsum(grad, a, c_string + ", " + a_string + " -> " + b_string);
+
+    std::cout  << b_grad << std::endl;
+
 
     update_grad(a.grad(), a_grad);
     update_grad(b.grad(), b_grad);

@@ -89,7 +89,7 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
       token += c;
     }
   }
-  tokens.push_back(token);
+  if(token.size() != 0) tokens.push_back(token);
   // group shapes
   std::map<std::string, size_t> a_shape_map;
   std::map<std::string, size_t> b_shape_map;
@@ -118,6 +118,7 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
       size_map[tokens[i]] = b.shape()[b_shape_map[tokens[i]]];
     } else if (state == 2) {
       if (size_map.count(tokens[i]) == 0) {
+        std::cout << "here\n";
         throw std::invalid_argument("Invalid equation");
       }
       c_shape_map[tokens[i]] = index++;

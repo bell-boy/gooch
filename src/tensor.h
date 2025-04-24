@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.h"
+
 #include <vector>
 #include <memory>
 #include <string>
@@ -171,9 +173,9 @@ View Tensor::operator()(Args... indices) {
     new_size *= shape_[i];
   }
   View result = View(new_shape, new_strides, new_offset, *this);
-  result.grad_fn_ = [this, result](Tensor grad) {
+  result.grad_fn_ = [this, new_shape](Tensor grad) {
     Tensor new_grad = zeros(shape_);
-    View(result.shape(), utils::compute_strides(result.shape()), 0, new_grad) = grad;
+    View(new_shape, utils::compute_strides(new_shape), 0, new_grad) = grad;
     update_grad(new_grad, *this);
   };
   return result;
