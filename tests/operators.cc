@@ -30,6 +30,7 @@ int main() {
   gooch::Tensor a = gooch::FromVector(a_vec);
   gooch::Tensor b = gooch::FromVector(b_vec);
   gooch::Tensor c = a + b;
+
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < M; j++) {
       gooch::View view = c(i, j);
@@ -37,11 +38,5 @@ int main() {
       assert(fabs(*data - a_vec[i][j] - b_vec[i][j]) < 1e-6);
     }
   }
-
-  gooch::Tensor x = gooch::FromVector(1.0f);
-  gooch::Tensor y = gooch::FromVector(std::vector<std::vector<float>>{{1, 2}, {3, 4}});
-  gooch::Tensor z = x + y;
-  z.grad()(gooch::Slice::all()) = gooch::FromVector(std::vector<std::vector<float>>{{1, 1}, {1, 1}});
-  std::cout << z.grad() << std::endl;
   return 0;
 }
