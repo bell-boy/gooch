@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <immintrin.h>
 #include <set>
+#include <random>
 
 namespace gooch {
 
