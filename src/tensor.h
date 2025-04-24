@@ -220,4 +220,6 @@ Tensor operator/(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a);
 Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation);
 Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes);
+Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes);
+Tensor crossEntropyLoss(const Tensor& a, std::vector<size_t> correct);
 }

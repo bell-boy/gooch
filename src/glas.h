@@ -34,5 +34,7 @@ void adam_update(size_t N,
     float lr,
     float eps);
 Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unordered_set<size_t> axes, float fill);
+Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes);
+Tensor reduceMax(const Tensor& a, std::unordered_set<size_t> axes);
 }
 }

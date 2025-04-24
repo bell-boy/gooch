@@ -245,7 +245,7 @@ void update_grad(const Tensor& grad, const Tensor& op) {
   }
 
   // TODO: investigate optimization for buffer-reduce -- the only reduced indicies will be on the inside
-  Tensor reduced_grad = glas::reduce(grad, [] (float a, float b) { return a + b; }, axes, 0.0f);
+  Tensor reduced_grad = glas::reduceSum(grad, axes);
 
   op.TouchGrad();
 
@@ -346,7 +346,7 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
 }
 
 Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
-  Tensor result = glas::reduce(a, [] (float x, float y) { return x + y; }, axes, 0.0f);
+  Tensor result = glas::reduceSum(a, axes);
   result.grad_fn_ = [a, axes] (Tensor grad) {
     std::vector<int> strides(a.strides().size());
     for (size_t i = 0; i < a.shape().size(); ++i) {
@@ -360,6 +360,27 @@ Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
     Tensor a_grad(a.shape(), strides, grad.offset(), grad.data());
     update_grad(a_grad, a);
   };
+  return result;
+}
+
+Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
+  Tensor max = glas::reduceMax(a, axes);
+  Tensor result = glas::add(max, glas::reduceSum(glas::exp(glas::sub(a, max)), axes));
+  result.grad_fn_ = [a, result] (Tensor grad) {
+    Tensor a_grad = glas::exp(glas::sub(a, result));
+    update_grad(a_grad, a);
+  };
+  return result;
+}
+
+Tensor crossEntropyLoss(Tensor& a, std::vector<size_t> correct) {
+  size_t N = a.shape()[0];
+  Tensor result = zeros(std::vector<size_t>(1, 1));
+  std::unordered_set<size_t> axes = {1};
+  Tensor lse = logSumExp(a, axes);
+  for (size_t i = 0; i < N; ++i) {
+    result = result + lse(i) - a(i, correct[i]);
+  }
   return result;
 }
 }

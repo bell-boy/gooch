@@ -347,8 +347,13 @@ Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unord
 
   return Tensor(shape, utils::compute_strides(shape), 0, buffer);
 }
+
+Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
+  return reduce(a, [] (float x, float y) { return x + y; }, axes, 0.0f);
 }
 
-
-
+Tensor reduceMax(const Tensor& a, std::unordered_set<size_t> axes) {
+  return reduce(a, [] (float x, float y) { return std::max(x, y); }, axes, std::numeric_limits<float>::lowest());
+}
+}
 }
