@@ -8,6 +8,48 @@
 namespace gooch {
 namespace glas {
 
+void adam_update(size_t N,
+    float* theta,           // parameter buffer
+    const float* m,     // first moment
+    const float* v,     // second moment
+    float lr,
+    float eps) {
+const __m256 lr_vec = _mm256_set1_ps(lr);
+const __m256 eps_vec = _mm256_set1_ps(eps);
+for (size_t i = 0; i < N - N%8; i += 8) {
+__m256 m_vec = _mm256_loadu_ps(m + i);
+__m256 v_vec = _mm256_loadu_ps(v + i);
+v_vec = _mm256_sqrt_ps(v_vec);
+v_vec = _mm256_add_ps(v_vec, eps_vec);
+__m256 upd = _mm256_div_ps(m_vec, v_vec);
+upd = _mm256_mul_ps(lr_vec, upd);
+__m256 theta_vec = _mm256_loadu_ps(theta + i);
+theta_vec = _mm256_sub_ps(theta_vec, upd);
+_mm256_storeu_ps(theta + i, theta_vec);
+}
+for (size_t i = N - N%8; i < N; ++i) {
+theta[i] -= lr * (m[i] / (std::sqrt(v[i]) + eps));
+}
+}
+
+
+void inplace_add_square_const(size_t N, float a, const float* x, float* y) {
+  const __m256 alpha_vec = _mm256_set1_ps(a);
+  for (size_t i = 0; i < (N - N % 8); i += 8) {
+    __m256 x_vec = _mm256_loadu_ps(x + i); 
+    x_vec = _mm256_mul_ps(x_vec, x_vec);
+    x_vec = _mm256_mul_ps(alpha_vec, x_vec);
+    __m256 y_vec = _mm256_loadu_ps(y + i);
+    y_vec = _mm256_add_ps(x_vec, y_vec);
+    _mm256_storeu_ps(y + i, y_vec);
+  }
+  for (size_t i = (N - N % 8); i < N; i++) {
+    y[i] += x[i] * x[i] * a;
+  }
+}
+
+
+
 void axpy(size_t N, float a, const float* x, float* y) {
   const __m256 alpha_vec = _mm256_set1_ps(a);
   for (size_t i = 0; i < (N - N % 8); i += 8) {

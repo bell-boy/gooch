@@ -22,6 +22,12 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation);
 void root_buf(size_t N, float* y);
 Tensor root(const Tensor& a);
 void mul_cons_simd(size_t N, float* y, float x);
-
+void inplace_add_square_const(size_t N, float a, const float* x, float* y);
+void adam_update(size_t N,
+    float* theta,           // parameter buffer
+    const float* m,     // first moment
+    const float* v,     // second moment
+    float lr,
+    float eps);
 }
 }
