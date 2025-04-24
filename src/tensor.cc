@@ -82,6 +82,17 @@ Tensor ones(std::vector<size_t> shape) {
   return t;
 }
 
+Tensor randn(std::vector<size_t> shape) {
+  Tensor t(shape);
+  std::default_random_engine generator;
+  std::normal_distribution<float> d(0, 1);
+
+  for (size_t i = 0; i < t.size(); i++) {
+    t.data().get()[i] = d(generator);
+  }
+  return t;
+}
+
 
 std::string Tensor::str() const {
   std::stringstream ss;

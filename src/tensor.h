@@ -143,6 +143,7 @@ public:
 
 Tensor zeros(std::vector<size_t> shape);
 Tensor ones(std::vector<size_t> shape);
+Tensor randn(std::vector<size_t> shape);
 void update_grad(const Tensor& grad, const Tensor& op);
 
 
