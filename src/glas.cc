@@ -49,7 +49,8 @@ void add_(const Tensor& a, const Tensor& b) {
   utils::BufferAssign(b, b_buffer);
 }
 
-void binary_op_simd8(size_t N, const float* x, float* y, __m256 (*op) (__m256, __m256)) {
+template <typename Op>
+void binary_op_simd8(size_t N, const float* x, float* y, Op op) {
   for (size_t i = 0; i < (N - N % 8); i += 8) {
     __m256 x_vec = _mm256_loadu_ps(x + i);
     __m256 y_vec = _mm256_loadu_ps(y + i);
@@ -71,7 +72,7 @@ Tensor binary_op(const Tensor& a, const Tensor& b, void (*op)(size_t, const floa
 }
 
 void mul_simd(size_t N, const float* x, float* y) {
-  binary_op_simd8(N, x, y, _mm256_mul_ps);
+  binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_mul_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
     y[i] *= x[i];
   }
@@ -82,7 +83,7 @@ Tensor mul(const Tensor& a, const Tensor& b) {
 }
 
 void div_simd(size_t N, const float* x, float* y) {
-  binary_op_simd8(N, x, y, _mm256_div_ps);
+  binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_div_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
     y[i] /= x[i];
   }
@@ -93,7 +94,7 @@ Tensor div(const Tensor& a, const Tensor& b) {
 }
 
 void sub_simd(size_t N, const float* x, float* y) {
-  binary_op_simd8(N, x, y, _mm256_sub_ps);
+  binary_op_simd8(N, x, y, [] (__m256 x_vec, __m256 y_vec) { return _mm256_sub_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
     y[i] -= x[i];
   }
@@ -103,7 +104,8 @@ Tensor sub(const Tensor& a, const Tensor& b) {
   return binary_op(a, b, sub_simd);
 }
 
-void unary_op_simd8(size_t N, float* y, float alpha, __m256 (*op) (__m256, __m256)) {
+template <typename Op>
+void unary_op_simd8(size_t N, float* y, float alpha, Op op) {
   const __m256 alpha_vec = _mm256_set1_ps(alpha);
   for (size_t i = 0; i < (N - N % 8); i += 8) {
     __m256 y_vec = _mm256_loadu_ps(y + i);
@@ -121,7 +123,7 @@ Tensor unary_op(const Tensor& a, void (*op) (size_t, float*)) {
 }
 
 void neg_simd(size_t N, float* y) {
-  unary_op_simd8(N, y, -1, _mm256_mul_ps);
+  unary_op_simd8(N, y, -1, [] (__m256 x_vec, __m256 y_vec) { return _mm256_mul_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
     y[i] *= -1;
   }
@@ -132,7 +134,7 @@ Tensor neg(const Tensor& a) {
 }
 
 void inv_simd(size_t N, float* y) {
-  unary_op_simd8(N, y, 1, _mm256_div_ps);
+  unary_op_simd8(N, y, 1, [] (__m256 x_vec, __m256 y_vec) { return _mm256_div_ps(x_vec, y_vec); });
   for (size_t i = (N - N % 8); i < N; ++i) {
     y[i] = 1 / y[i];
   }
