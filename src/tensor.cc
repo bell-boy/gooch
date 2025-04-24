@@ -207,7 +207,7 @@ Tensor Tensor::Broadcast(const Tensor& a, const std::vector<size_t>& shape) {
       new_strides[i] = 0;
     } else {
       assert(a.shape()[a_index] == shape[i] || a.shape()[a_index] == 1);
-      new_strides[i] = a.strides()[a_index];
+      new_strides[i] = a.shape()[a_index] == shape[i] ? a.strides()[a_index] : 0;
     }
   }
   return Tensor(shape, new_strides, a.offset(), a);
@@ -234,9 +234,13 @@ void update_grad(const Tensor& grad, const Tensor& op) {
 
   Tensor broadcast = Tensor::Broadcast(op, grad.shape());
 
+  // TODO: double check
   for (size_t i = 0; i < broadcast.shape().size(); ++i) {
     if (broadcast.strides()[i] == 0) {
-      axes.insert(i);
+      int reverse_index = (int) op.shape().size() - (int) (broadcast.shape().size() - i - 1);
+      if (reverse_index >= 0 && broadcast.shape()[i] != op.shape()[reverse_index]) {
+        axes.insert(i);
+      }
     }
   }
 

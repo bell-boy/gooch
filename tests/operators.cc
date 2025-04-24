@@ -49,7 +49,6 @@ int main() {
   }
 
   c = a / b;
-  std::cout << "a / b" << std::endl;
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < M; j++) {
       gooch::View view = c(i, j);
@@ -68,9 +67,13 @@ int main() {
   }
 
   // Test broadcasting
+  // broadcasting bug, edge case when broadcasting from 1
   gooch::Tensor x = gooch::randn({N, 1});
   gooch::Tensor y = gooch::randn({M});
   c = a + x;
+  std::cout << "a + x " <<  c <<  std::endl;
+  std::cout << "a " << a << std::endl;
+  std::cout << "x " << x << std::endl;
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < M; j++) {
       gooch::View view = c(i, j);
@@ -79,6 +82,7 @@ int main() {
       float* view_data = view.data().get() + view.offset();
       float* x_data = x_view.data().get() + x_view.offset();
       float* a_data = a_view.data().get() + a_view.offset();
+      std::cout << *view_data << " " << *x_data +  *a_data << " " << *x_data << " " << *a_data << std::endl;
       assert(fabs(*view_data - *x_data - *a_data) < 1e-6);
     }
   }
