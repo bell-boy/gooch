@@ -6,7 +6,7 @@
 namespace gooch {
 namespace utils {
 void BufferCopy(const Tensor& a, float* buffer) {
-  std::function<void(Tensor, float*, size_t, size_t, size_t)> recursive_copy = [&](Tensor t, float* buffer, size_t buffer_offset, size_t tensor_offset, size_t N) {
+  std::function<void(Tensor, float*, int, int, int)> recursive_copy = [&](Tensor t, float* buffer, int buffer_offset, int tensor_offset, int N) {
     if (N == 0) {
       buffer[buffer_offset] = t.data().get()[tensor_offset + t.offset()];
     } else {
@@ -15,7 +15,8 @@ void BufferCopy(const Tensor& a, float* buffer) {
         for (size_t j = N; j < t.shape().size(); j++) {
           buffer_stride *= t.shape()[j];
         }
-        recursive_copy(t, buffer, buffer_offset + i * buffer_stride, tensor_offset + i * t.strides()[N - 1], N - 1);
+        int tensor_stride = t.strides()[N - 1];
+        recursive_copy(t, buffer, buffer_offset + i * buffer_stride, tensor_offset + i * tensor_stride, N - 1);
       }
     }
   };
@@ -37,8 +38,8 @@ void BufferReduce(const Tensor& a, float* buffer, std::set<size_t> reduced_indic
   recursive_reduce(a, buffer, 0, 0, a.shape().size());
 }
 
-void BufferAssign(const Tensor& a, float* const buffer) {
-  Tensor b(a.shape(), a.strides(), 0, std::shared_ptr<float>(buffer));
+void BufferAssign(const Tensor& a, std::shared_ptr<float> buffer) {
+  Tensor b(a.shape(), a.strides(), 0, buffer);
   View a_prime(a);
   a_prime = b;
 }

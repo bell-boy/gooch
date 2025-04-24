@@ -314,14 +314,12 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
 
 
     Tensor a_grad = glas::einsum(grad, b, c_string + ", " + b_string + " -> " + a_string);
-    std::cout << a_grad << std::endl;
     Tensor b_grad = glas::einsum(grad, a, c_string + ", " + a_string + " -> " + b_string);
 
-    std::cout  << b_grad << std::endl;
 
 
-    update_grad(a.grad(), a_grad);
-    update_grad(b.grad(), b_grad);
+    update_grad(a_grad, a);
+    update_grad(b_grad, b);
   };
   return result;
 }

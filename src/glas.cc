@@ -46,7 +46,7 @@ void add_(const Tensor& a, const Tensor& b) {
 
   glas::axpy(b.size(), 1.0f, a_buffer.get(), b_buffer.get());
 
-  utils::BufferAssign(b, b_buffer.get());
+  utils::BufferAssign(b, b_buffer);
 }
 
 void mul_simd(size_t N, const float* x, float* y) {
@@ -118,7 +118,6 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
       size_map[tokens[i]] = b.shape()[b_shape_map[tokens[i]]];
     } else if (state == 2) {
       if (size_map.count(tokens[i]) == 0) {
-        std::cout << "here\n";
         throw std::invalid_argument("Invalid equation");
       }
       c_shape_map[tokens[i]] = index++;
