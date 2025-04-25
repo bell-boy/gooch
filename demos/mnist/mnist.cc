@@ -26,7 +26,6 @@ using namespace std;
 */
 const int MAXN = 10000;
 pair<vector<int> , vector<vector<float>>> GetMnist(std::string path = "mnist_test.csv"){ // label set , image set
-    cin.tie(0)->sync_with_stdio(0);
     ifstream cin(path);
     string temp;
     getline(cin , temp);

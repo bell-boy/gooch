@@ -233,11 +233,12 @@ void update_grad(const Tensor& grad, const Tensor& op) {
   std::unordered_set<size_t> axes;
 
   Tensor broadcast = Tensor::Broadcast(op, grad.shape());
-
   // TODO: double check
   for (size_t i = 0; i < broadcast.shape().size(); ++i) {
     if (broadcast.strides()[i] == 0) {
-      int reverse_index = (int) op.shape().size() - (int) (broadcast.shape().size() - i - 1);
+      // int reverse_index = (int) op.shape().size() - (int) (broadcast.shape().size() - i - 1);
+      // int reverse_index = i - ()
+      int reverse_index = i - (int)(broadcast.shape().size() - op.shape().size());
       if (reverse_index >= 0 && broadcast.shape()[i] != op.shape()[reverse_index]) {
         axes.insert(i);
       }
@@ -250,7 +251,6 @@ void update_grad(const Tensor& grad, const Tensor& op) {
   op.TouchGrad();
 
   glas::add_(reduced_grad, op.grad());
-
   if (op.grad_fn_) op.grad_fn_(grad);
 }
 
