@@ -11,3 +11,13 @@ gooch::Tensor GatedLinearUnitMLP::forward(gooch::Tensor input_batch) {
   gooch::Tensor x_2 = gooch::Einsum(input_batch, W_2_, "batch input_dim, hidden_dim input_dim -> batch hidden_dim");
   return gooch::Einsum(x_1 * x_2, W_down_, "batch hidden_dim, output_dim hidden_dim -> batch output_dim");
 }
+
+std::vector<gooch::Tensor> GatedLinearUnitMLP::params() {
+  return std::vector<gooch::Tensor>{W_1_, W_2_, W_down_};
+};
+
+void GatedLinearUnitMLP::ZeroGrad() {
+  for (auto t : params()) {
+    t.ZeroGrad();
+  }
+}

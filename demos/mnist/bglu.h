@@ -10,4 +10,6 @@ private:
 public:
   GatedLinearUnitMLP(size_t input_dim, size_t hidden_dim, size_t output_dim);
   gooch::Tensor forward(gooch::Tensor input_batch);
+  std::vector<gooch::Tensor> params();
+  void ZeroGrad();
 };
