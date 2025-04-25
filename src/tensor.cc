@@ -363,9 +363,11 @@ Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
   return result;
 }
 
+// To-do: Make a general re-shaping function
 Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
-  Tensor max = glas::reduceMax(a, axes);
-  Tensor result = glas::add(max, glas::reduceSum(glas::exp(glas::sub(a, max)), axes));
+  Tensor reducedMax = glas::reduceMax(a, axes);
+  Tensor max = View(std::vector<size_t>{reducedMax.shape()[0] , 1} , std::vector<int>{1 , 0} , reducedMax.offset(), reducedMax);
+  Tensor result = glas::add(reducedMax, glas::reduceSum(glas::exp(glas::sub(a, max)), axes));
   result.grad_fn_ = [a, result] (Tensor grad) {
     Tensor a_grad = glas::mul(grad, glas::exp(glas::sub(a, result)));
     update_grad(a_grad, a);

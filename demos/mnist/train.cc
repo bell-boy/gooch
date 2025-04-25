@@ -11,9 +11,7 @@ int main(int argc, char** argv) {
   }
   std::string path = argv[1];
   auto [labels, images] = GetMnist(path);
-
   gooch::Tensor x = gooch::FromVector(images);
-
   std::cout << x(gooch::Slice(0, 1)) << std::endl;
   GatedLinearUnitMLP mlp(784, 100, 10);
   gooch::Tensor y_pred = mlp.forward(x(gooch::Slice(0, 1)));
