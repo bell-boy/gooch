@@ -322,24 +322,26 @@ Tensor einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
 Tensor reduce(const Tensor& a, std::function<float(float, float)> op, std::unordered_set<size_t> axes, float fill) {
   size_t size = 1;
   std::vector<size_t> shape;
+  std::map<size_t, int> depth_to_index;
   for (size_t i = 0; i < a.shape().size(); ++i) {
     if (axes.find(i) == axes.end()) {
       size *= a.shape()[i];
       shape.push_back(a.shape()[i]);
+      depth_to_index[i] = shape.size() - 1;
     }
   }
 
   std::shared_ptr<float> buffer(new float[size], std::default_delete<float[]>());
   std::fill(buffer.get(), buffer.get() + size, fill);
 
-  std::function<void(size_t, int, int)> recursive_reduce = [a, op, axes, fill, buffer, size, &recursive_reduce] (size_t depth, int buffer_offset, int tensor_offset) {
+  std::function<void(size_t, int, int)> recursive_reduce = [=, &depth_to_index, &recursive_reduce] (size_t depth, int buffer_offset, int tensor_offset) {
     if (depth == a.shape().size()) {
       buffer.get()[buffer_offset] = op(buffer.get()[buffer_offset], a.data().get()[a.offset() + tensor_offset]);
     }
     else {
       for (size_t i = 0; i < a.shape()[depth]; ++i) {
         int offset_inc = ((int) i) * a.strides()[depth];
-        int buffer_offset_inc = axes.find(i) != axes.end() ? 0 : ((int) i) * utils::compute_strides(a.shape())[depth];
+        int buffer_offset_inc = axes.find(depth) != axes.end() ? 0 : ((int) i) * utils::compute_strides(shape)[depth_to_index[depth]];
         recursive_reduce(depth + 1, buffer_offset + buffer_offset_inc, tensor_offset + offset_inc);
       }
     }
