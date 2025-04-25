@@ -375,7 +375,7 @@ Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
 
 Tensor crossEntropyLoss(const Tensor& a, std::vector<size_t> correct) {
   size_t N = a.shape()[0];
-  Tensor result = zeros(std::vector<size_t>(1, 1));
+  Tensor result = zeros({});
   std::unordered_set<size_t> axes = {1};
   Tensor lse = logSumExp(a, axes);
   for (size_t i = 0; i < N; ++i) {

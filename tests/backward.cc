@@ -8,5 +8,9 @@ int main() {
   c(0).Backward();
   std::cout << "grads:" << std::endl;
   std::cout << a.grad() << std::endl << b.grad() << std::endl << c.grad() << std::endl;
+  
+  gooch::Tensor d = gooch::randn({2, 2});
+  std::cout << d << std::endl;
+  std::cout << gooch::crossEntropyLoss(d, {0, 1}) << std::endl;
   return 0;
 }
