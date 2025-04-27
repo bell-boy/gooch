@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
 
     //mlp.ZeroGrad();
     loss.Backward(); 
-    sgd.step();
+    // sgd.step();
 
     break;
 

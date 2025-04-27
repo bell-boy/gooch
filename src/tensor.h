@@ -176,10 +176,16 @@ View Tensor::operator()(Args... indices) const {
     new_size *= shape_[i];
   }
   View result = View(new_shape, new_strides, new_offset, *this);
-  result.grad_fn_ = [this, new_shape](Tensor grad) {
-    Tensor new_grad = zeros(shape_);
+  Tensor this_tensor = *this;
+  result.grad_fn_ = [this_tensor, new_shape](Tensor grad) {
+    // std::cout << "here\n";
+    // for (auto i : this_tensor.shape()) {
+    //   std::cout << i << std::endl;
+    // }
+    // exit(0);
+    Tensor new_grad = zeros(this_tensor.shape());
     View(new_shape, utils::compute_strides(new_shape), 0, new_grad) = grad;
-    update_grad(new_grad, *this);
+    update_grad(new_grad, this_tensor);
   };
   return result;
 }
