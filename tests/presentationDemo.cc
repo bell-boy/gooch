@@ -5,13 +5,14 @@
 
 #include <iostream>
 
-int main() {
+int main(int argc  , char** argv) {
+  assert(argc==3);
   std::vector<float> x_data(100);
   std::vector<float> y_data(100);
 
   for (int i = 0; i < 100; ++i) {
     x_data[i] = i;
-    y_data[i] = i * -3;
+    y_data[i] = i * std::stoi(argv[1]);
   }
 
   gooch::Tensor noise = gooch::randn({100});
@@ -23,16 +24,18 @@ int main() {
 
   std::vector<gooch::Tensor> params = {m};
   gooch::SGD adam({params}, 0.1f);
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i <std::stoi(argv[2]); ++i) {
     loss = gooch::zeros({});
     for (int j = 0; j < 100; ++j) {
       loss_i = y(j) - (x(j) * m);
       loss = loss + loss_i * loss_i;
     }
+    loss = loss / gooch::FromVector(std::vector<float>{100.0f});
     loss.Backward();
     adam.step();
+    std::cout << "Prediction: " <<  m << std::endl;
+    std::cout << "Grad: " << m.grad() << "\n";
     m.ZeroGrad();
-    std::cout << m << std::endl;
   }
   return 0;
 }

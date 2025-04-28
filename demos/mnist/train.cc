@@ -16,23 +16,23 @@ int main(int argc, char** argv) {
   GatedLinearUnitMLP mlp(784, 100, 10);
   gooch::SGD sgd(mlp.params(), 1e-5f);
   int BATCH_SIZE = 10;
+  // int count = 0;
   for (int i = 0; i + BATCH_SIZE <  (int) labels.size(); i+=BATCH_SIZE) {
     std::vector<size_t> y_true;
     for (int j = i; j < BATCH_SIZE + i; j++) {
       y_true.push_back(labels[j]);
     }
-    gooch::Tensor x_ = x(gooch::Slice(i,i+BATCH_SIZE-1));
+    // gooch::Tensor x_ = x(gooch::Slice(i,i+BATCH_SIZE-1));
+    gooch::Tensor x_ = x(gooch::Slice(0, BATCH_SIZE-1));
     gooch::Tensor y_pred = mlp.forward(x_);
 
     gooch::Tensor loss = gooch::crossEntropyLoss(y_pred, y_true);
 
     std::cout << loss << std::endl;
 
-    //mlp.ZeroGrad();
+    mlp.ZeroGrad();
     loss.Backward(); 
-    // sgd.step();
-
-    break;
+    sgd.step();
 
   }
   return 0;

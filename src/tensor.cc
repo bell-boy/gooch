@@ -140,6 +140,7 @@ Tensor Tensor::grad() const {
   return t;
 }
 
+int num = 0;
 // backward is only defined on scalar tensors
 void Tensor::Backward() {
   if (size_ != 1) {
@@ -148,6 +149,7 @@ void Tensor::Backward() {
   if (!grad_fn_) {
     std::invalid_argument("Tensor must have grad function defined");
   }
+  num=0;
   grad_fn_(FromVector(1.0f));
 }
 
@@ -229,7 +231,6 @@ void View::operator=(const Tensor& other) {
 
 View::View(const Tensor& t) : Tensor(t.shape(), t.strides(), t.offset(), t.data()) {}
 
-// int num = 0;
 void update_grad(const Tensor& grad, const Tensor& op) {
   std::unordered_set<size_t> axes;
   Tensor broadcast = Tensor::Broadcast(op, grad.shape());
@@ -330,7 +331,6 @@ Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation) {
       }
     }
 
-
     Tensor a_grad = glas::einsum(grad, b, c_string + ", " + b_string + " -> " + a_string);
     Tensor b_grad = glas::einsum(grad, a, c_string + ", " + a_string + " -> " + b_string);
 
@@ -366,7 +366,13 @@ Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
   Tensor max = View(std::vector<size_t>{reducedMax.shape()[0] , 1} , std::vector<int>{1 , 0} , reducedMax.offset(), reducedMax);
   Tensor result = glas::log(glas::add(reducedMax, glas::reduceSum(glas::exp(glas::sub(a, max)), axes)));
   result.grad_fn_ = [a, result] (Tensor grad) {
-    Tensor a_grad = glas::mul(grad, glas::exp(glas::sub(a, result)));
+    // for(auto& d : a.shape())std::cout << d << " ";
+    // std::cout << "\n";
+    // for(auto& d : result.shape())std::cout << d << " ";
+    // std::cout << "\n";
+    // std::cout << grad << "\n";
+    // exit(0);
+    Tensor a_grad =glas::sub(a, result);
     update_grad(a_grad, a);
   };
   return result;
