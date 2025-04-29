@@ -146,7 +146,7 @@ public:
 Tensor zeros(std::vector<size_t> shape);
 Tensor ones(std::vector<size_t> shape);
 Tensor randn(std::vector<size_t> shape);
-void update_grad(const Tensor& grad, const Tensor& op);
+void propagate_grad(const Tensor& grad, const Tensor& op);
 
 
 template<typename... Args>
@@ -177,15 +177,16 @@ View Tensor::operator()(Args... indices) const {
   }
   View result = View(new_shape, new_strides, new_offset, *this);
   Tensor this_tensor = *this;
-  result.grad_fn_ = [this_tensor, new_shape](Tensor grad) {
-    // std::cout << "here\n";
-    // for (auto i : this_tensor.shape()) {
-    //   std::cout << i << std::endl;
-    // }
-    // exit(0);
+  result.grad_fn_ = [this_tensor, new_shape , slices](Tensor grad) {
+    std::vector<int> new_grad_strides = utils::compute_strides(new_shape);
+    size_t new_grad_offset = 0;
+    for (size_t i = 0; i < slices.size(); i++) {
+      int start = slices[i].start_ < 0 ? slices[i].start_ + this_tensor.shape()[i] : slices[i].start_;
+      new_grad_offset += start * utils::compute_strides(this_tensor.shape())[i];
+    }
     Tensor new_grad = zeros(this_tensor.shape());
-    View(new_shape, utils::compute_strides(new_shape), 0, new_grad) = grad;
-    update_grad(new_grad, this_tensor);
+    View(new_shape, new_grad_strides, new_grad_offset, new_grad) = grad;
+    propagate_grad(new_grad, this_tensor);
   };
   return result;
 }
@@ -224,6 +225,7 @@ Tensor operator-(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator/(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a);
+Tensor reshape(const Tensor& a);
 Tensor Einsum(const Tensor& a, const Tensor& b, const std::string& equation);
 Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes);
 Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes);

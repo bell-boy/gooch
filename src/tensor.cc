@@ -231,11 +231,13 @@ void View::operator=(const Tensor& other) {
 
 View::View(const Tensor& t) : Tensor(t.shape(), t.strides(), t.offset(), t.data()) {}
 
+void propagate_grad(const Tensor& grad, const Tensor& op) {
+  if (op.grad_fn_) op.grad_fn_(grad);
+}
+
 void update_grad(const Tensor& grad, const Tensor& op) {
   std::unordered_set<size_t> axes;
   Tensor broadcast = Tensor::Broadcast(op, grad.shape());
-  // std::cout << num++ << "\n";
-  // TODO: double check
   for (size_t i = 0; i < broadcast.shape().size(); ++i) {
     if (broadcast.strides()[i] == 0) {
       int reverse_index = i - (int)(broadcast.shape().size() - op.shape().size());
@@ -244,12 +246,12 @@ void update_grad(const Tensor& grad, const Tensor& op) {
       }
     }
   }
-  // TODO: investigate optimization for buffer-reduce -- the only reduced indicies will be on the inside
   Tensor reduced_grad = glas::reduceSum(grad, axes);
 
   op.TouchGrad();
   glas::add_(reduced_grad, op.grad());
-  if (op.grad_fn_) op.grad_fn_(grad);
+
+  propagate_grad(grad, op);
 }
 
 Tensor operator+(const Tensor& a, const Tensor& b) {
@@ -360,19 +362,35 @@ Tensor reduceSum(const Tensor& a, std::unordered_set<size_t> axes) {
   return result;
 }
 
-// To-do: Make a general re-shaping function
+Tensor reshape(const Tensor& a , std::vector<size_t> newShape){
+  // check that the newShape is valid
+  size_t prod = 1;
+  for(auto& dim : newShape){
+    prod *= dim;
+  }
+  for(auto& dim : a.shape()){
+    assert(!(prod%dim)) ;
+    prod/=dim;
+  }
+  assert(prod == 1);
+  Tensor result = Tensor(newShape , utils::compute_strides(newShape) , a.offset() , a);
+  result.grad_fn_ = a.grad_fn_;
+  return result;
+}
+
 Tensor logSumExp(const Tensor& a, std::unordered_set<size_t> axes) {
+  assert(a.shape().size()==2); // Only works for 2d tensors right now
+
+  size_t batchSize = a.shape()[0];
   Tensor reducedMax = glas::reduceMax(a, axes);
-  Tensor max = View(std::vector<size_t>{reducedMax.shape()[0] , 1} , std::vector<int>{1 , 0} , reducedMax.offset(), reducedMax);
-  Tensor result = glas::log(glas::add(reducedMax, glas::reduceSum(glas::exp(glas::sub(a, max)), axes)));
-  result.grad_fn_ = [a, result] (Tensor grad) {
-    // for(auto& d : a.shape())std::cout << d << " ";
-    // std::cout << "\n";
-    // for(auto& d : result.shape())std::cout << d << " ";
-    // std::cout << "\n";
-    // std::cout << grad << "\n";
-    // exit(0);
-    Tensor a_grad =glas::sub(a, result);
+  Tensor max = reshape(reducedMax , std::vector<size_t>{batchSize , 1});
+  Tensor exp = glas::exp(glas::sub(a, max));
+  Tensor reducedSum = glas::reduceSum(exp, axes);
+  Tensor result = glas::add(reducedMax , glas::log(reducedSum));
+  Tensor reshapedResult  = reshape(result , std::vector<size_t>{batchSize , 1});
+  result.grad_fn_ = [a, reshapedResult] (Tensor grad) {
+    Tensor reshapedGrad = reshape(grad , reshapedResult.shape());
+    Tensor a_grad = glas::mul(reshapedGrad , glas::exp(glas::sub(a, reshapedResult)));
     update_grad(a_grad, a);
   };
   return result;
@@ -386,6 +404,6 @@ Tensor crossEntropyLoss(const Tensor& a, std::vector<size_t> correct) {
   for (size_t i = 0; i < N; ++i) {
     result = result + lse((int) i) - a((int) i, (int) correct[i]);
   }
-  return result / FromVector(std::vector<float>{(float) N});
+  return result / FromVector((float)N);
 }
 }
